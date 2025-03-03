@@ -2,12 +2,18 @@ using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddControllers();
+
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddSingleton<Dictionary<int, Reservation>>();
+
 var app = builder.Build();
+
+app.MapControllers();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -20,7 +26,6 @@ if (app.Environment.IsDevelopment())
 
 
 var tables = new Dictionary<int, Table>();
-var reservations = new Dictionary<int, Reservation>();
 
 //GET /tables (with pagination)
 app.MapGet("/tables", (int page = 1, int size = 10) =>
@@ -126,73 +131,6 @@ app.MapDelete("/tables/{id:int}", (int id) =>
         return Results.NotFound(new ErrorResponse { Message = "Table not found" });
   
       return Results.NoContent();
-});
-
-
-// GET /reservations/1
-app.MapGet("/reservations/{id}", (int id) =>
-{
-    if (!reservations.TryGetValue(id, out var reservation))
-        return Results.NotFound(new ErrorResponse { Message = "Reservation not found" });
-    
-    return Results.Ok(reservation);
-});
-
-// GET /reservations?tableId=1&date=2025-02-29
-app.MapGet("/reservations", (HttpContext context, int? tableId, DateTime? date) =>
-{
-    var validParameters = new HashSet<string> { "tableId", "date" };
-    var queryParameters = context.Request.Query.Keys;
-    foreach (var param in queryParameters)
-    {
-        if (!validParameters.Contains(param))
-        {
-            return Results.BadRequest(new ErrorResponse { Message = $"Invalid query paramenter: {param}" });
-        }
-    }
-    
-    var filtered = reservations.AsEnumerable();
-
-    if (tableId.HasValue)
-        filtered = reservations.Where(x => x.Value.TableId == tableId);
-    if (date.HasValue)
-        filtered = filtered.Where(x => x.Value.StartTime.Date == date.Value.Date);
-        
-    var resultList = filtered.Select(x => x.Value).ToList();
-    if (resultList.Count == 0)
-        return Results.NotFound(new ErrorResponse { Message = "Reservations not found" });
-
-    return Results.Ok(resultList);
-});
-
-// POST /reservations
-app.MapPost("/reservations", (Reservation reservation) =>
-{
-    reservations.Add(reservations.Count + 1, reservation);
-    return Results.Created($"/reservations/{reservations.Count}", reservation);
-});
-
-// PUT /reservations/1
-app.MapPut("/reservations/{id}", (int id, Reservation reservation) =>
-{
-    if (!reservations.TryGetValue(id, out var existingReservation))
-        return Results.NotFound(new ErrorResponse { Message = "Reservation not found" });
-
-    existingReservation.TableId = reservation.TableId;
-    existingReservation.ClientId = reservation.ClientId;
-    existingReservation.StartTime = reservation.StartTime;
-    existingReservation.EndTime = reservation.EndTime;
-    
-    return Results.Ok(existingReservation);
-});
-
-// DELETE /reservations/1
-app.MapDelete("/reservations/{id}", (int id) =>
-{
-    if (!reservations.Remove(id))
-        return Results.NotFound(new ErrorResponse { Message = "Reservation not found" });
-    
-    return Results.NoContent();
 });
 
 #endregion

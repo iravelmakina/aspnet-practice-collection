@@ -15,4 +15,9 @@
         <InternalsVisibleTo Include="DNET.Backend.Api.Tests" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Models\" />
+      <Folder Include="Options\" />
+    </ItemGroup>
+
 </Project>
