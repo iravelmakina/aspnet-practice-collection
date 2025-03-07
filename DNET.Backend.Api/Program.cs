@@ -1,15 +1,14 @@
 using System.Text.Json;
+using DNET.Backend.Api.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddSingleton<Dictionary<int, Reservation>>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-builder.Services.AddSingleton<Dictionary<int, Reservation>>();
 
 var app = builder.Build();
 
@@ -142,19 +141,6 @@ public record Table
 {
     public int Id { get; set; }
     public int Capacity { get; set; }
-}
-
-public record Reservation
-{
-    public int ClientId { get; set; }
-    public int TableId { get; set; }
-    public DateTime StartTime { get; set; }
-    public DateTime EndTime { get; set; }
-}
-
-class ErrorResponse
-{
-    public string Message { get; set; }
 }
 
 public partial class Program

@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using DNET.Backend.Api.Models;
+using DNET.Backend.Api.Services;
 
 namespace DNET.Backend.Api.Controllers;
 
@@ -6,11 +8,11 @@ namespace DNET.Backend.Api.Controllers;
 [Route("reservations")]
 public class ReservationController : ControllerBase
 {
-    private readonly Dictionary<int, Reservation> _reservations;
+    private readonly IReservationService _reservationService;
 
-    public ReservationController(Dictionary<int, Reservation> reservations)
+    public ReservationController(IReservationService reservationService)
     {
-        _reservations = reservations;
+        _reservationService = reservationService;
     }
     
     // GET /reservations/1
@@ -18,7 +20,8 @@ public class ReservationController : ControllerBase
     [Route("{id}")]
     public IActionResult GetReservation(int id)
     {
-        if (!_reservations.TryGetValue(id, out var reservation))
+        var reservation = _reservationService.GetReservation(id);
+        if (reservation == null)
             return NotFound(new ErrorResponse { Message = "Reservation not found" });
     
         return Ok(reservation);
@@ -37,43 +40,32 @@ public class ReservationController : ControllerBase
         //         return BadRequest(new ErrorResponse { Message = $"Invalid query parameter: {param}" });
         //     }
         // }
-    
-        var filtered = _reservations.AsEnumerable();
 
-        if (tableId.HasValue)
-            filtered = _reservations.Where(x => x.Value.TableId == tableId);
-        if (date.HasValue)
-            filtered = filtered.Where(x => x.Value.StartTime.Date == date.Value.Date);
-        
-        var resultList = filtered.Select(x => x.Value).ToList();
-        if (resultList.Count == 0)
+        var reservations = _reservationService.GetAllReservations(tableId, date);
+        if (reservations == null)
             return NotFound(new ErrorResponse { Message = "Reservations not found" });
 
-        return Ok(resultList);
+        return Ok(reservations);
     }
     
     // POST /reservations
     [HttpPost]
-    public IActionResult PostReservation(Reservation reservation)
+    public IActionResult CreateReservation(Reservation reservation)
     {
-        _reservations.Add(_reservations.Count + 1, reservation);
-        return Created($"/reservations/{_reservations.Count}", reservation);
+        var (id, newReservation) = _reservationService.AddReservation(reservation);
+        return Created($"/reservations/{id}", reservation);
     }
 
     // PUT /reservations/1
     [HttpPut]
     [Route("{id}")]
-    public IActionResult PutReservation(int id, Reservation reservation)
+    public IActionResult UpdateReservation(int id, Reservation reservation)
     {
-        if (!_reservations.TryGetValue(id, out var existingReservation))
+        var updatedReservation = _reservationService.UpdateReservation(id, reservation);
+        if (updatedReservation == null)
             return NotFound(new ErrorResponse { Message = "Reservation not found" });
-
-        existingReservation.TableId = reservation.TableId;
-        existingReservation.ClientId = reservation.ClientId;
-        existingReservation.StartTime = reservation.StartTime;
-        existingReservation.EndTime = reservation.EndTime;
         
-        return Ok(existingReservation);
+        return Ok(updatedReservation);
     }
 
     // DELETE /reservations/1
@@ -81,7 +73,7 @@ public class ReservationController : ControllerBase
     [Route("{id}")]
     public IActionResult DeleteReservation(int id)
     {
-        if (!_reservations.Remove(id))
+        if (!_reservationService.DeleteReservation(id))
             return NotFound(new ErrorResponse { Message = "Reservation not found" });
         
         return NoContent();
