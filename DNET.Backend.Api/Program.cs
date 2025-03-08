@@ -19,7 +19,7 @@ builder.Services.AddControllers();
 
 builder.Services.Configure<ReservationOptions>(builder.Configuration.GetSection("ReservationSettings"));
 
-builder.Services.AddScoped<IReservationService, ReservationService>();
+builder.Services.AddSingleton<IReservationService, ReservationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

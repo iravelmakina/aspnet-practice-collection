@@ -2,6 +2,8 @@ namespace DNET.Backend.Api.Models;
 
 public class Reservation
 {
+    public Reservation() { }
+    
     public Reservation(int clientId, int tableId, string startTime, string endTime)
     {
         ClientId = clientId;
