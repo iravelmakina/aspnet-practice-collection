@@ -1,11 +1,25 @@
 using System.Text.Json;
 using DNET.Backend.Api.Models;
+using DNET.Backend.Api.Options;
+using DNET.Backend.Api.Services;
+using Microsoft.Extensions.Options;
+using Winton.Extensions.Configuration.Consul;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddConsul("ReservationConfig", options =>
+{
+    options.Optional = true;
+    options.ReloadOnChange = true;
+    options.OnLoadException = exceptionContext => { exceptionContext.Ignore = true; };
+    options.OnWatchException = _ => TimeSpan.FromMinutes(5);
+});
+
 builder.Services.AddControllers();
 
-builder.Services.AddSingleton<Dictionary<int, Reservation>>();
+builder.Services.Configure<ReservationOptions>(builder.Configuration.GetSection("ReservationSettings"));
+
+builder.Services.AddScoped<IReservationService, ReservationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

@@ -29,7 +29,7 @@ public class ReservationController : ControllerBase
     
     // GET /reservations?tableId=1&date=2025-02-29
     [HttpGet]
-    public IActionResult GetReservations(int? tableId, DateTime? date)
+    public IActionResult GetReservations(int? clientId, int? tableId, DateTime? date)
     {
         // var validParameters = new HashSet<string> { "tableId", "date" };
         // var queryParameters = context.Request.Query.Keys;
@@ -41,7 +41,7 @@ public class ReservationController : ControllerBase
         //     }
         // }
 
-        var reservations = _reservationService.GetAllReservations(tableId, date);
+        var reservations = _reservationService.GetAllReservations(clientId, tableId, date);
         if (!reservations.Any())
             return NotFound(new ErrorResponse { Message = "Reservations not found" });
 
@@ -52,8 +52,11 @@ public class ReservationController : ControllerBase
     [HttpPost]
     public IActionResult CreateReservation(Reservation reservation)
     {
-        var (id, newReservation) = _reservationService.AddReservation(reservation);
-        return Created($"/reservations/{id}", newReservation);
+        var result = _reservationService.AddReservation(reservation);
+        if (result == null)
+            return BadRequest(new ErrorResponse { Message = "Reservation limit exceeded" });
+        
+        return Created($"/reservations/{result.Item1}", result.Item2);
     }
 
     // PUT /reservations/1

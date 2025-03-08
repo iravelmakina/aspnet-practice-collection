@@ -7,9 +7,9 @@ public interface IReservationService
 
     public Reservation? GetReservation(int id);
     
-    public List<Reservation> GetAllReservations(int? tableId, DateTime? date);
+    public List<Reservation> GetAllReservations(int? clientId, int? tableId, DateTime? date);
 
-    public Tuple<int, Reservation> AddReservation(Reservation reservation);
+    public Tuple<int, Reservation>? AddReservation(Reservation reservation);
     
     public Reservation? UpdateReservation(int id, Reservation reservation);
     

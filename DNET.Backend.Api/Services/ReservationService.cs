@@ -1,14 +1,18 @@
 using DNET.Backend.Api.Models;
+using DNET.Backend.Api.Options;
+using Microsoft.Extensions.Options;
 
 namespace DNET.Backend.Api.Services;
 
 public class ReservationService : IReservationService
 {
     private Dictionary<int, Reservation> Reservations  { get; set; }
+    private readonly IOptionsMonitor<ReservationOptions> _optionsDelegate;
 
-    public ReservationService()
+    public ReservationService(IOptionsMonitor<ReservationOptions> optionsDelegate)
     {
         Reservations = new Dictionary<int, Reservation>();
+        _optionsDelegate = optionsDelegate;
     }
 
     public Reservation? GetReservation(int id)
@@ -19,10 +23,12 @@ public class ReservationService : IReservationService
         return reservation;
     }
     
-    public List<Reservation> GetAllReservations(int? tableId = null, DateTime? date = null)
+    public List<Reservation> GetAllReservations(int? clientId = null, int? tableId = null, DateTime? date = null)
     {
         var filtered = Reservations.AsEnumerable();
 
+        if (clientId.HasValue)
+            filtered = Reservations.Where(x => x.Value.ClientId == clientId);
         if (tableId.HasValue)
             filtered = Reservations.Where(x => x.Value.TableId == tableId);
         if (date.HasValue)
@@ -31,8 +37,11 @@ public class ReservationService : IReservationService
         return filtered.Select(x => x.Value).ToList();
     }
 
-    public Tuple<int, Reservation> AddReservation(Reservation reservation)
+    public Tuple<int, Reservation>? AddReservation(Reservation reservation)
     {
+        if (GetAllReservations(reservation.ClientId).Count >= _optionsDelegate.CurrentValue.ReservationLimit)
+            return null;
+        
         int newId = Reservations.Count + 1;
         Reservations[newId] = reservation;
 
