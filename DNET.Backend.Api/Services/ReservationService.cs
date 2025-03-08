@@ -19,7 +19,7 @@ public class ReservationService : IReservationService
         return reservation;
     }
     
-    public List<Reservation>? GetAllReservations(int? tableId, DateTime? date)
+    public List<Reservation> GetAllReservations(int? tableId = null, DateTime? date = null)
     {
         var filtered = Reservations.AsEnumerable();
 
@@ -27,12 +27,8 @@ public class ReservationService : IReservationService
             filtered = Reservations.Where(x => x.Value.TableId == tableId);
         if (date.HasValue)
             filtered = filtered.Where(x => x.Value.StartTime.Date == date.Value.Date);
-
-        var resultList = filtered.Select(x => x.Value).ToList();
-        if (resultList.Count == 0)
-            return null;
         
-        return resultList;
+        return filtered.Select(x => x.Value).ToList();
     }
 
     public Tuple<int, Reservation> AddReservation(Reservation reservation)

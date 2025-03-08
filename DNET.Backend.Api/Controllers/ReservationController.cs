@@ -42,7 +42,7 @@ public class ReservationController : ControllerBase
         // }
 
         var reservations = _reservationService.GetAllReservations(tableId, date);
-        if (reservations == null)
+        if (!reservations.Any())
             return NotFound(new ErrorResponse { Message = "Reservations not found" });
 
         return Ok(reservations);
@@ -53,7 +53,7 @@ public class ReservationController : ControllerBase
     public IActionResult CreateReservation(Reservation reservation)
     {
         var (id, newReservation) = _reservationService.AddReservation(reservation);
-        return Created($"/reservations/{id}", reservation);
+        return Created($"/reservations/{id}", newReservation);
     }
 
     // PUT /reservations/1
