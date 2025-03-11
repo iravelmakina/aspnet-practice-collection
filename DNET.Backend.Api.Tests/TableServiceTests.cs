@@ -8,7 +8,7 @@ using Moq;
 namespace DNET.Backend.Api.Tests;
 
 [Collection("TableServiceTests")]
-public sealed class TableServiceTest
+public sealed class TableServiceTests
 {
     private static TableService ConfigureTableService(bool allowCreation = true)
     {

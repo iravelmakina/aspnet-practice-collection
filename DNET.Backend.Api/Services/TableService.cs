@@ -27,7 +27,7 @@ public class TableService : ITableService
             .ToList();
         
         if (paginatedTables.Count == 0)
-            return null; // Not Found
+            return null;
         
         return new Tuple<int, int, int, int, List<Table>>(totalItems, page, size, totalPages, paginatedTables);
     }
@@ -36,10 +36,10 @@ public class TableService : ITableService
     public Table? GetTable(int id)
     {
         if (!Tables.TryGetValue(id, out var table))
-            return null; // Not Found
+            return null;
         
         return table;
-    } //coolcoolcool
+    }
 
     
     public List<Table>? GetTablesByCapacity(int capacity)
@@ -49,7 +49,7 @@ public class TableService : ITableService
             .ToList();
         
         if (tables.Count == 0)
-            return null; // Not Found
+            return null;
         
         return tables;
     }
@@ -61,8 +61,7 @@ public class TableService : ITableService
             return null; // Feature disabled
         
         if (Tables.ContainsKey(table.Id)) 
-            throw new BadRequestException("A table with this ID already exists.", 400); // BadRequest
-        // BadRequest
+            throw new BadRequestException("A table with this ID already exists.", 400);
         
         int newId = Tables.Count + 1;
         Tables[newId] = table;
@@ -77,7 +76,7 @@ public class TableService : ITableService
             return null; // Not Found
         
         if (table.Id != id && Tables.ContainsKey(table.Id))
-            throw new BadRequestException("A table with this ID already exists.", 400); // BadRequest
+            throw new BadRequestException("A table with this ID already exists.", 400);
         
         existingTable.Id = table.Id;
         existingTable.Capacity = table.Capacity;
@@ -89,13 +88,13 @@ public class TableService : ITableService
     public Table? PatchTable(int id, JsonElement patch)
     {
         if (!Tables.TryGetValue(id, out var existingTable))
-            return null; // Not Found
+            return null;
         
         if (patch.TryGetProperty("id", out var idElement))
         {
             var newId = idElement.GetInt32();
             if (newId != id && Tables.ContainsKey(newId))
-                throw new BadRequestException("A table with this ID already exists.", 400); // BadRequest
+                throw new BadRequestException("A table with this ID already exists.", 400);
             
             existingTable.Id = newId;
         }
@@ -109,6 +108,6 @@ public class TableService : ITableService
     
     public bool DeleteTable(int id)
     {
-        return Tables.Remove(id); // Not Found
+        return Tables.Remove(id);
     }
 }
