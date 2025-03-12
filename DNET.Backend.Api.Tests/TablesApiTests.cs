@@ -2,10 +2,13 @@ using System.Net;
 using System.Text;
 using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net.Http.Json;
+using DNET.Backend.Api.Models;
 
 namespace DNET.Backend.Api.Tests;
 
-public class TablesApiTests : BaseApiTests
+
+[Collection("TablesApiTests")]
+public sealed class TablesApiTests : BaseApiTests
 {
     public TablesApiTests(WebApplicationFactory<Program> factory) : base(factory)
     {
