@@ -7,6 +7,7 @@ using Moq;
 
 namespace DNET.Backend.Api.Tests;
 
+
 [Collection("TableServiceTests")]
 public sealed class TableServiceTests
 {

@@ -30,7 +30,7 @@ public class TableController : ControllerBase
             TotalItems = tables.Item1,
             Page = tables.Item2,
             PageSize = tables.Item3,
-            TotalPages = (int)Math.Ceiling((double)tables.Item4 / size),
+            TotalPages = tables.Item4,
             Items = tables.Item5
         };
 
@@ -39,7 +39,8 @@ public class TableController : ControllerBase
     
     
     // GET /tables/1
-    [HttpGet("{id:int}")]
+    [HttpGet]
+    [Route("{id:int}")]
     public IActionResult GetTable(int id)
     {
         var table = _tableService.GetTable(id);
@@ -51,7 +52,8 @@ public class TableController : ControllerBase
     
     
     // GET /tables/filter?capacity=4
-    [HttpGet("filter")]
+    [HttpGet]
+    [Route("filter")]
     public IActionResult GetTablesByCapacity(int capacity)
     {
         var tables = _tableService.GetTablesByCapacity(capacity);
@@ -86,7 +88,8 @@ public class TableController : ControllerBase
     
     
     // PUT /tables/1
-    [HttpPut("{id:int}")]
+    [HttpPut]
+    [Route("{id:int}")]
     public IActionResult UpdateTable(int id, Table table)
     {
         try
@@ -110,7 +113,8 @@ public class TableController : ControllerBase
     
     
     // PATCH /tables/1
-    [HttpPatch("{id:int}")]
+    [HttpPatch]
+    [Route("{id:int}")]
     public IActionResult PatchTable(int id, JsonElement patch)
     {
         try
@@ -134,7 +138,8 @@ public class TableController : ControllerBase
     
     
     // DELETE /tables/1
-    [HttpDelete("{id:int}")]
+    [HttpDelete]
+    [Route("{id:int}")]
     public IActionResult DeleteTable(int id)
     {
         if (!_tableService.DeleteTable(id))

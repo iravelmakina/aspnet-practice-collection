@@ -13,11 +13,11 @@ builder.Configuration.AddConsul("Table&ReservationConfig", options =>
 
 builder.Services.AddControllers();
 
+builder.Services.Configure<TableOptions>(builder.Configuration.GetSection("TableSettings"));
+builder.Services.AddSingleton<ITableService, TableService>();
+
 builder.Services.Configure<ReservationOptions>(builder.Configuration.GetSection("ReservationSettings"));
 builder.Services.AddSingleton<IReservationService, ReservationService>();
-
-builder.Services.Configure<TableOptions>(builder.Configuration.GetSection("ProductSettings"));
-builder.Services.AddSingleton<ITableService, TableService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
