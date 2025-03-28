@@ -1,9 +1,12 @@
 using DNET.Backend.Api.Options;
 using DNET.Backend.Api.Services;
+using DNET.Backend.DataAccess;
 using Winton.Extensions.Configuration.Consul;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddConsul("Table&ReservationConfig", options =>
+builder.Configuration.AddConsul("TableReservationsConfig", options =>
 {
     options.Optional = true;
     options.ReloadOnChange = true;
@@ -11,13 +14,17 @@ builder.Configuration.AddConsul("Table&ReservationConfig", options =>
     options.OnWatchException = _ => TimeSpan.FromMinutes(5);
 });
 
-builder.Services.AddControllers();
-
 builder.Services.Configure<TableOptions>(builder.Configuration.GetSection("TableSettings"));
-builder.Services.AddSingleton<ITableService, TableService>();
+builder.Services.AddScoped<ITableService, TableService>();
 
 builder.Services.Configure<ReservationOptions>(builder.Configuration.GetSection("ReservationSettings"));
-builder.Services.AddSingleton<IReservationService, ReservationService>();
+builder.Services.AddScoped<IReservationService, ReservationService>();
+
+builder.Services.AddControllers();
+
+builder.Services.AddDbContext<TableReservationsDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("TableReservationsDb"))
+);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

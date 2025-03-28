@@ -5,20 +5,20 @@ namespace DNET.Backend.Api.Services;
 
 public interface ITableService
 {
-    public Tuple<int, int, int, int, List<Table>>? GetAllPaginatedTables(int page = 1, int size = 10);
+    public Tuple<int, int, int, int, List<TableDTO>>? GetAllPaginatedTables(int page = 1, int size = 10);
     
-    public Table? GetTable(int id);
+    public TableDTO? GetTable(int id);
     
-    public List<Table>? GetTablesByCapacity(int capacity);
-    
-    /// <exception cref="BadRequestException"></exception>
-    public Tuple<int, Table>? CreateTable(Table table);
+    public List<TableDTO>? GetTablesByCapacity(int capacity);
     
     /// <exception cref="BadRequestException"></exception>
-    public Table? UpdateTable(int id, Table table);
+    public Tuple<int, TableDTO>? CreateTable(TableDTO table);
     
     /// <exception cref="BadRequestException"></exception>
-    public Table? PatchTable(int id, JsonElement patch);
+    public TableDTO? UpdateTable(int id, TableDTO table);
+    
+    /// <exception cref="BadRequestException"></exception>
+    public TableDTO? PatchTable(int id, JsonElement patch);
     
     public bool DeleteTable(int id);
 }

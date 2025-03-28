@@ -1,68 +1,151 @@
 using DNET.Backend.Api.Models;
 using DNET.Backend.Api.Options;
+using DNET.Backend.Api.Requests;
+using DNET.Backend.DataAccess;
+using DNET.Backend.DataAccess.Domain;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace DNET.Backend.Api.Services;
 
 public class ReservationService : IReservationService
 {
-    private Dictionary<int, Reservation> Reservations  { get; set; }
     private readonly IOptionsMonitor<ReservationOptions> _optionsDelegate;
+    private readonly TableReservationsDbContext _dbContext;
 
-    public ReservationService(IOptionsMonitor<ReservationOptions> optionsDelegate)
+    public ReservationService(IOptionsMonitor<ReservationOptions> optionsDelegate, TableReservationsDbContext dbContext)
     {
-        Reservations = new Dictionary<int, Reservation>();
         _optionsDelegate = optionsDelegate;
+        _dbContext = dbContext;
     }
 
-    public Reservation? GetReservation(int id)
+    public ReservationDTO? GetReservation(int id)
     {
-        if (!Reservations.TryGetValue(id, out var reservation))
+        var reservation = _dbContext.Reservations
+            .Include(r => r.ReservationDetail)
+            .Include(r => r.Client)
+            .Include(r => r.Table)
+            .ThenInclude(t => t.Host)
+            .FirstOrDefault(r => r.Id == id);
+        
+        if (reservation == null)
             return null;
     
-        return reservation;
+        return new ReservationDTO(reservation);
     }
     
-    public List<Reservation> GetAllReservations(int? clientId = null, int? tableId = null, DateTime? date = null)
+    public List<ReservationDTO> GetAllReservations(int? clientId = null, int? tableId = null, DateTime? date = null, String? reservationType = null)
     {
-        var filtered = Reservations.AsEnumerable();
-
+        var query = _dbContext.Reservations
+            .Include(r => r.ReservationDetail)
+            .Include(r => r.Client)
+            .Include(r => r.Table)
+            .ThenInclude(t => t.Host)
+            .AsQueryable();
+        
         if (clientId.HasValue)
-            filtered = Reservations.Where(x => x.Value.ClientId == clientId);
+            query = query.Where(r => r.ClientId == clientId);
         if (tableId.HasValue)
-            filtered = Reservations.Where(x => x.Value.TableId == tableId);
+            query = query.Where(r => r.TableId == tableId);
         if (date.HasValue)
-            filtered = filtered.Where(x => x.Value.StartTime.Date == date.Value.Date);
-        
-        return filtered.Select(x => x.Value).ToList();
+            query = query.Where(r => r.StartTime.Date == DateTime.SpecifyKind(date.Value.Date, DateTimeKind.Utc));
+        if (reservationType != null)
+            query = query.Where(r => r.ReservationDetail.ReservationType.ToString() == reservationType);
+
+        return query.Select(r => new ReservationDTO(r)).ToList();
     }
 
-    public Tuple<int, Reservation>? AddReservation(Reservation reservation)
+    public Tuple<int, ReservationDTO>? AddReservation(CreateUpdateReservationRequest request)
     {
-        if (GetAllReservations(reservation.ClientId).Count >= _optionsDelegate.CurrentValue.ReservationLimit)
+        if (GetAllReservations(request.ClientId).Count >= _optionsDelegate.CurrentValue.ReservationLimit)
             return null;
         
-        int newId = Reservations.Count + 1;
-        Reservations[newId] = reservation;
+        var table = _dbContext.Tables.FirstOrDefault(t => t.Number == request.TableNumber);
+        var client = _dbContext.Clients.FirstOrDefault(c => c.Id == request.ClientId);
+        if (table == null || client == null)
+            throw new BadRequestException("The table or client doesn't exist", 400);
+        
+        var newStartTime = DateTime.SpecifyKind(DateTime.Parse(request.StartTime), DateTimeKind.Utc);
+        var newEndTime = DateTime.SpecifyKind(DateTime.Parse(request.EndTime), DateTimeKind.Utc);
+        var conflictingReservation = _dbContext.Reservations
+            .FirstOrDefault(r => r.TableId == table.Id &&
+                            r.StartTime < newEndTime && r.EndTime > newStartTime);
+        if (conflictingReservation != null)
+            throw new BadRequestException("The table is reserved for the time specified", 400);
 
-        return new Tuple<int, Reservation>(newId, reservation);
+        var reservationEntity = new ReservationEntity
+        {
+            Uid = Guid.NewGuid(),
+            ClientId = request.ClientId,
+            TableId = table.Id,
+            StartTime = newStartTime,
+            EndTime = newEndTime
+        };
+        _dbContext.Reservations.Add(reservationEntity);
+        _dbContext.SaveChanges();
+
+        var reservationDetailEntity = new ReservationDetailEntity
+        {
+            ReservationId = reservationEntity.Id,
+            ReservationType = Enum.TryParse(request.ReservationType,
+                out ReservationDetailEntity.ReservationTypeEnum reservationType)
+                ? reservationType
+                : ReservationDetailEntity.ReservationTypeEnum.Meeting,
+            SpecialRequests = request.SpecialRequests
+        };
+        reservationEntity.ReservationDetail = reservationDetailEntity;
+        _dbContext.ReservationDetails.Add(reservationDetailEntity);
+        _dbContext.SaveChanges();
+        
+        return new Tuple<int, ReservationDTO>(reservationEntity.Id, new ReservationDTO(reservationEntity));
     }
 
-    public Reservation? UpdateReservation(int id, Reservation reservation)
+    public ReservationDTO? UpdateReservation(int id, CreateUpdateReservationRequest request)
     {
-        if (!Reservations.TryGetValue(id, out var existingReservation))
+        var existingReservation = _dbContext.Reservations.FirstOrDefault(r => r.Id == id);
+        if (existingReservation == null)
             return null;
+        
+        var table = _dbContext.Tables.FirstOrDefault(t => t.Number == request.TableNumber);
+        var client = _dbContext.Clients.FirstOrDefault(c => c.Id == request.ClientId);
+        if (table == null || client == null)
+            throw new BadRequestException("The table or client doesn't exist", 400);
+        
+        
+        var newStartTime = DateTime.SpecifyKind(DateTime.Parse(request.StartTime), DateTimeKind.Utc);
+        var newEndTime = DateTime.SpecifyKind(DateTime.Parse(request.EndTime), DateTimeKind.Utc);
+        existingReservation.EndTime = DateTime.SpecifyKind(DateTime.Parse(request.EndTime), DateTimeKind.Utc);
+        var conflictingReservation = _dbContext.Reservations
+            .FirstOrDefault(r => r.Id != existingReservation.Id && r.TableId == table.Id &&
+                            r.StartTime < newEndTime && r.EndTime > newStartTime);
+        if (conflictingReservation != null)
+            throw new BadRequestException("The table is reserved for the time specified", 400);
 
-        existingReservation.TableId = reservation.TableId;
-        existingReservation.ClientId = reservation.ClientId;
-        existingReservation.StartTime = reservation.StartTime;
-        existingReservation.EndTime = reservation.EndTime;
+        existingReservation.TableId = table.Id;
+        existingReservation.ClientId = request.ClientId;
+        existingReservation.StartTime = newStartTime;
+        existingReservation.EndTime = newEndTime;
+        existingReservation.ReservationDetail.ReservationType = Enum.TryParse(request.ReservationType,
+            out ReservationDetailEntity.ReservationTypeEnum reservationType)
+            ? reservationType
+            : ReservationDetailEntity.ReservationTypeEnum.Meeting;
+        existingReservation.ReservationDetail.SpecialRequests = request.SpecialRequests;
 
-        return existingReservation;
+        _dbContext.SaveChanges();
+
+        return new ReservationDTO(existingReservation);
     }
 
     public bool DeleteReservation(int id)
     {
-        return Reservations.Remove(id);
+        var reservation = _dbContext.Reservations.FirstOrDefault(r => r.Id == id);
+
+        if (reservation == null)
+            return false;
+
+        _dbContext.Reservations.Remove(reservation);
+        _dbContext.SaveChanges();
+
+        return true;
     }
 }

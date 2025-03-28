@@ -2,50 +2,60 @@ using DNET.Backend.Api.Models;
 using DNET.Backend.Api.Options;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
+using DNET.Backend.DataAccess;
+using DNET.Backend.DataAccess.Domain;
+using Microsoft.EntityFrameworkCore;
 
 namespace DNET.Backend.Api.Services;
 
 public class TableService : ITableService
 {
-    public Dictionary <int, Table> Tables  { get; set; }
+    private readonly TableReservationsDbContext _dbContext;
     private readonly IOptionsMonitor<TableOptions> _optionsDelegate;
     
-    public TableService(IOptionsMonitor<TableOptions> optionsDelegate)
+    public TableService(TableReservationsDbContext dbContext, IOptionsMonitor<TableOptions> optionsDelegate)
     {
-        Tables = new Dictionary<int, Table>();
+        _dbContext = dbContext;
         _optionsDelegate = optionsDelegate;
     }
     
-    public Tuple<int, int, int, int, List<Table>>? GetAllPaginatedTables(int page = 1, int size = 10)
+    public Tuple<int, int, int, int, List<TableDTO>>? GetAllPaginatedTables(int page = 1, int size = 10)
     {
-        var totalItems = Tables.Values.Count;
+        var totalItems = _dbContext.Tables.Count();
         var totalPages = (int)Math.Ceiling((double)totalItems / size);
             
-        var paginatedTables = Tables.Values
+        var paginatedTables = _dbContext.Tables
+            .Include(t => t.Location)
             .Skip((page - 1) * size)
             .Take(size)
+            .Select(t => new TableDTO(t))
             .ToList();
         
         if (paginatedTables.Count == 0)
             return null;
         
-        return new Tuple<int, int, int, int, List<Table>>(totalItems, page, size, totalPages, paginatedTables);
+        return new Tuple<int, int, int, int, List<TableDTO>>(totalItems, page, size, totalPages, paginatedTables);
     }
 
-    
-    public Table? GetTable(int id)
+
+    public TableDTO? GetTable(int id)
     {
-        if (!Tables.TryGetValue(id, out var table))
+        var table = _dbContext.Tables
+            .Include(t => t.Location)
+            .FirstOrDefault(t => t.Id == id);
+
+        if (table == null)
             return null;
-        
-        return table;
+
+        return new TableDTO(table);
     }
 
-    
-    public List<Table>? GetTablesByCapacity(int capacity)
+    public List<TableDTO>? GetTablesByCapacity(int capacity)
     {
-        var tables = Tables.Values
+        var tables = _dbContext.Tables
+            .Include(t => t.Location)
             .Where(x => x.Capacity == capacity)
+            .Select(t => new TableDTO(t))
             .ToList();
         
         if (tables.Count == 0)
@@ -55,59 +65,110 @@ public class TableService : ITableService
     }
 
     
-    public Tuple<int, Table>? CreateTable(Table table)
+    public Tuple<int, TableDTO>? CreateTable(TableDTO table)
     {
         if (!_optionsDelegate.CurrentValue.AllowTableCreation)
             return null; // Feature disabled
         
-        if (Tables.ContainsKey(table.Id)) 
-            throw new BadRequestException("A table with this ID already exists.", 400);
+        if (_dbContext.Tables.Any(t => t.Number == table.Number))
+            throw new BadRequestException("A table with this number already exists.", 400);
         
-        int newId = Tables.Count + 1;
-        Tables[newId] = table;
+        var location = _dbContext.Locations
+            .FirstOrDefault(l => l.Name == table.Location);
+    
+        if (location == null)
+            throw new BadRequestException("The specified location does not exist.", 400);
         
-        return new Tuple<int, Table>(newId, table);
+        var tableEntity = new TableEntity
+        {
+            Number = table.Number,
+            Capacity = table.Capacity,
+            LocationId = location.Id
+        };
+        
+        _dbContext.Tables.Add(tableEntity);
+        
+        _dbContext.SaveChanges();
+        
+        return new Tuple<int, TableDTO>(tableEntity.Id, table);
     }
 
     
-    public Table? UpdateTable(int id, Table table)
+    public TableDTO? UpdateTable(int id, TableDTO table)
     {
-        if (!Tables.TryGetValue(id, out var existingTable))
-            return null; // Not Found
+        var existingTable = _dbContext.Tables
+            .Include(t => t.Location)
+            .FirstOrDefault(t => t.Id == id);
         
-        if (table.Id != id && Tables.ContainsKey(table.Id))
-            throw new BadRequestException("A table with this ID already exists.", 400);
+        if (existingTable == null)
+            return null;
         
-        existingTable.Id = table.Id;
+        if (table.Number != existingTable.Number && _dbContext.Tables.Any(t => t.Number == table.Number))
+            throw new BadRequestException("A table with this number already exists.", 400);
+        
+        var location = _dbContext.Locations
+            .FirstOrDefault(l => l.Name == table.Location);
+        
+        if (location == null)
+            throw new BadRequestException("The specified location does not exist.", 400);
+        
+        existingTable.Number = table.Number;
         existingTable.Capacity = table.Capacity;
+        existingTable.Location.Name = table.Location;
         
-        return existingTable;
+        return new TableDTO(existingTable);
     }
     
     
-    public Table? PatchTable(int id, JsonElement patch)
+    public TableDTO? PatchTable(int id, JsonElement patch)
     {
-        if (!Tables.TryGetValue(id, out var existingTable))
+        var existingTable = _dbContext.Tables
+            .Include(t => t.Location)
+            .FirstOrDefault(t => t.Id == id);
+    
+        if (existingTable == null)
             return null;
         
-        if (patch.TryGetProperty("id", out var idElement))
+        if (patch.TryGetProperty("number", out var numberElement))
         {
-            var newId = idElement.GetInt32();
-            if (newId != id && Tables.ContainsKey(newId))
-                throw new BadRequestException("A table with this ID already exists.", 400);
+            var newNumber = numberElement.GetInt32();
+            if (newNumber != existingTable.Number && _dbContext.Tables.Any(t => t.Number == newNumber))
+                throw new BadRequestException("A table with this number already exists.", 400);
             
-            existingTable.Id = newId;
+            existingTable.Number = newNumber;
         }
         
         if (patch.TryGetProperty("capacity", out var capacityElement))
             existingTable.Capacity = capacityElement.GetInt32();
         
-        return existingTable;
+        if (patch.TryGetProperty("location", out var locationElement))
+        {
+            var newLocation = locationElement.GetString();
+            var location = _dbContext.Locations
+                .FirstOrDefault(l => l.Name == newLocation);
+            
+            if (location == null)
+                throw new BadRequestException("The specified location does not exist.", 400);
+            
+            existingTable.Location.Id = location.Id;
+        }
+        
+        _dbContext.SaveChanges();
+        
+        return new TableDTO(existingTable);
     }
 
     
     public bool DeleteTable(int id)
     {
-        return Tables.Remove(id);
+        var table = _dbContext.Tables.Find(id);
+
+        if (table == null)
+            return false;
+
+        _dbContext.Tables.Remove(table);
+        _dbContext.SaveChanges();
+
+        return true;
     }
 }

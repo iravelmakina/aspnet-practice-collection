@@ -2,6 +2,8 @@ using System.Text.Json;
 using DNET.Backend.Api.Models;
 using DNET.Backend.Api.Options;
 using DNET.Backend.Api.Services;
+using DNET.Backend.DataAccess;
+using DNET.Backend.DataAccess.Domain;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -11,57 +13,65 @@ namespace DNET.Backend.Api.Tests;
 [Collection("TableServiceTests")]
 public sealed class TableServiceTests
 {
-    private static TableService ConfigureTableService(bool allowCreation = true)
+    private TableReservationsDbContext _dbContext;
+    private TableService _tableService;
+    
+    public TableServiceTests()
     {
         var mockOptionsMonitor = new Mock<IOptionsMonitor<TableOptions>>();
 
         mockOptionsMonitor
             .Setup(o => o.CurrentValue)
-            .Returns(new TableOptions { AllowTableCreation = allowCreation });
+            .Returns(new TableOptions { AllowTableCreation = true });
 
-        return new TableService(mockOptionsMonitor.Object);
+        _dbContext = Utils.CreateInMemoryDatabaseContext();
+        _tableService = new TableService(_dbContext, mockOptionsMonitor.Object);
     }
     
     
     [Fact]
     public void TableService_ShouldCreateEmptyTablesList()
     {
-        var tableService = ConfigureTableService();
-        Assert.Empty(tableService.Tables);
+        Assert.Empty(_dbContext.Tables.ToList());
     }
     
     
     [Fact]
     public void GetAllPaginatedTables_ShouldReturnAllPaginatedTables()
     {
-        var tableService = ConfigureTableService();
-
-        for (int i = 1; i <= 15; i++)
+        for (int i = 1; i <= 6; i++)
         {
-            var table = new Table { Id = i, Capacity = i };
-            tableService.Tables.Add(i, table);
+            _dbContext.Tables.Add(new TableEntity
+            {
+                Id = i,
+                Number = i,
+                Capacity = i,
+                LocationId = i
+            });
         }
+        _dbContext.SaveChanges();
 
-        var result = tableService.GetAllPaginatedTables(2, 5);
+        var result = _tableService.GetAllPaginatedTables(2, 3);
 
         Assert.NotNull(result);
-        Assert.Equal(15, result.Item1);
+        Assert.Equal(6, result.Item1);
         Assert.Equal(2, result.Item2);
-        Assert.Equal(5, result.Item3);
-        Assert.Equal(3, result.Item4);
-        Assert.Equal(5, result.Item5.Count);
-        Assert.Equal(6, result.Item5.First().Id);
-        Assert.Equal(6, result.Item5.First().Capacity);
-        Assert.Equal(10, result.Item5.Last().Id);
-        Assert.Equal(10, result.Item5.Last().Capacity);
+        Assert.Equal(3, result.Item3);
+        Assert.Equal(2, result.Item4);
+        Assert.Equal(3, result.Item5.Count);
+        Assert.Equal(4, result.Item5.First().Number);
+        Assert.Equal(4, result.Item5.First().Capacity);
+        Assert.Equal("Bar", result.Item5.First().Location);
+        Assert.Equal(6, result.Item5.Last().Number);
+        Assert.Equal(6, result.Item5.Last().Capacity);
+        Assert.Equal("Garden", result.Item5.Last().Location);
     }
     
     
     [Fact]
     public void GetAllPaginatedTables_ShouldReturnNull_WhenDoesNotExist()
     {
-        var tableService = ConfigureTableService();
-        var result = tableService.GetAllPaginatedTables(10, 5);
+        var result = _tableService.GetAllPaginatedTables(10, 5);
         
         Assert.Null(result);
     }
@@ -70,25 +80,23 @@ public sealed class TableServiceTests
     [Fact]
     public void GetTable_ShouldReturnTable_WhenExists()
     {
-        var tableService = ConfigureTableService();
-        tableService.Tables = new Dictionary<int, Table>
-        {
-            { 1, new Table { Id = 1, Capacity = 4 } }
-        };
+        var newTable = new TableEntity { Number = 1, Capacity = 4, LocationId = 1 };
+        _dbContext.Tables.Add(newTable);
+        _dbContext.SaveChanges();
         
-        var result = tableService.GetTable(1);
+        var result = _tableService.GetTable(1);
         
         Assert.NotNull(result);
-        Assert.Equal(1, result.Id);
+        Assert.Equal(1, result.Number);
         Assert.Equal(4, result.Capacity);
+        Assert.Equal("Main Hall", result.Location);
     }
     
     
     [Fact]
     public void GetTable_ShouldReturnNull_WhenDoesNotExist()
     {
-        var tableService = ConfigureTableService();
-        var result = tableService.GetTable(777);
+        var result = _tableService.GetTable(777);
         
         Assert.Null(result);
     }
@@ -97,28 +105,26 @@ public sealed class TableServiceTests
     [Fact]
     public void GetTablesByCapacity_ShouldReturnAllFilteredTables_WhenExist()
     {
-        var tableService = ConfigureTableService();
-        tableService.Tables = new Dictionary<int, Table>
-        {
-            { 1, new Table { Id = 1, Capacity = 4 } },
-            { 2, new Table { Id = 2, Capacity = 6 } },
-            { 3, new Table { Id = 3, Capacity = 4 } }
-        };
+        _dbContext.Tables.Add(new TableEntity { Number = 1, Capacity = 4, LocationId = 1 });
+        _dbContext.Tables.Add(new TableEntity { Number = 2, Capacity = 6, LocationId = 2 });
+        _dbContext.Tables.Add(new TableEntity { Number = 3, Capacity = 4, LocationId = 3 });
+        _dbContext.SaveChanges();
         
-        var result = tableService.GetTablesByCapacity(4);
+        var result = _tableService.GetTablesByCapacity(4);
         
         Assert.NotNull(result);
         Assert.Equal(2, result.Count);
-        Assert.Equal(1, result[0].Id);
-        Assert.Equal(3, result[1].Id);
+        Assert.Equal(1, result[0].Number);
+        Assert.Equal(3, result[1].Number);
+        Assert.Equal("Main Hall", result[0].Location);
+        Assert.Equal("Private Room", result[1].Location);
     }
     
     
     [Fact]
     public void GetTablesByCapacity_ShouldReturnNull_WhenDoesNotExist()
     {
-        var tableService = ConfigureTableService();
-        var result = tableService.GetTablesByCapacity(777);
+        var result = _tableService.GetTablesByCapacity(777);
         
         Assert.Null(result);
     }
@@ -127,10 +133,11 @@ public sealed class TableServiceTests
     [Fact]
     public void CreateTable_ShouldReturnCreatedTuple_WhenAllowed()
     {
-        var tableService = ConfigureTableService();
-        var newTable = new Table { Id = 1, Capacity = 4 };
+        var newTable = new TableDTO { Number = 1, Capacity = 4, Location = "Main Hall" };
 
-        var result = tableService.CreateTable(newTable);
+        var result = _tableService.CreateTable(newTable);
+        
+         _dbContext.SaveChanges();
 
         Assert.NotNull(result);
         Assert.Equal(1, result.Item1);
@@ -141,149 +148,169 @@ public sealed class TableServiceTests
     [Fact]
     public void CreateTable_ShouldReturnNull_WhenCreationIsDisabled()
     {
-        var tableService = ConfigureTableService(allowCreation: false);
-        var newTable = new Table { Id = 1, Capacity = 4 };
+        var options = new Mock<IOptionsMonitor<TableOptions>>();
+        options.Setup(o => o.CurrentValue).Returns(new TableOptions { AllowTableCreation = false });
+        
+        var disabledService = new TableService(_dbContext, options.Object);
 
-        var result = tableService.CreateTable(newTable);
-
+        var newTable = new TableDTO { Number = 1, Capacity = 4, Location = "Main Hall" };
+    
+        var result = disabledService.CreateTable(newTable);
+    
         Assert.Null(result);
     }
     
     
     [Fact]
-    public void CreateTable_ShouldThrowException_WhenTableWithSameIdAlreadyExists()
+    public void CreateTable_ShouldThrowException_WhenTableWithSameNumberAlreadyExists()
     {
-        var tableService = ConfigureTableService();
-        tableService.Tables = new Dictionary<int, Table>
-        {
-            { 1, new Table { Id = 1, Capacity = 4 } }
-        };
-
-        var newTable = new Table { Id = 1, Capacity = 6 };
-
-        Assert.Throws<BadRequestException>(() => tableService.CreateTable(newTable));
+       
+        _dbContext.Tables.Add(new TableEntity { Number = 1, Capacity = 4, LocationId = 1 });
+        _dbContext.SaveChanges();
+    
+        var newTable = new TableDTO { Number = 1, Capacity = 6, Location = "Patio" };
+    
+        Assert.Throws<BadRequestException>(() => _tableService.CreateTable(newTable));
+    }
+    
+    
+    [Fact]
+    public void CreateTable_ShouldThrowException_WhenLocationDoesNotExist()
+    {
+        var newTable = new TableDTO { Number = 1, Capacity = 4, Location = "Swimming Pool" };
+    
+        Assert.Throws<BadRequestException>(() => _tableService.CreateTable(newTable));
     }
     
     
     [Fact]
     public void UpdateTable_ShouldReturnUpdatedTable_WhenExists()
     {
-        var tableService = ConfigureTableService();
-        tableService.Tables = new Dictionary<int, Table>
-        {
-            { 1, new Table { Id = 1, Capacity = 4 } }
-        };
-
-        var updatedTable = new Table { Id = 1, Capacity = 6 };
-
-        var result = tableService.UpdateTable(1, updatedTable);
-
+        _dbContext.Tables.Add(new TableEntity { Number = 1, Capacity = 4, LocationId = 1 });
+        _dbContext.SaveChanges();
+    
+        var updatedTable = new TableDTO { Number = 1, Capacity = 6, Location = "Patio" };
+    
+    
+        var result = _tableService.UpdateTable(1, updatedTable);
+    
         Assert.NotNull(result);
-        Assert.Equal(1, result.Id);
+        Assert.Equal(1, result.Number);
         Assert.Equal(6, result.Capacity);
+        Assert.Equal("Patio", result.Location);
     }
     
     
     [Fact]
     public void UpdateTable_ShouldReturnNull_WhenTableDoesNotExist()
     {
-        var tableService = ConfigureTableService();
-        var updatedTable = new Table { Id = 1, Capacity = 6 };
-
-        var result = tableService.UpdateTable(1, updatedTable);
-
+        var updatedTable = new TableDTO { Number = 1, Capacity = 6, Location = "Main Hall" };
+    
+        var result = _tableService.UpdateTable(1, updatedTable);
+    
         Assert.Null(result);
     }
     
     
     [Fact]
-    public void UpdateTable_ShouldThrowException_WhenTableWithSameIdAlreadyExists()
+    public void UpdateTable_ShouldThrowException_WhenTableWithSameNumberAlreadyExists()
     {
-        var tableService = ConfigureTableService();
-        tableService.Tables = new Dictionary<int, Table>
-        {
-            { 1, new Table { Id = 1, Capacity = 4 } },
-            { 2, new Table { Id = 2, Capacity = 6 } }
-        };
-
-        var updatedTable = new Table { Id = 2, Capacity = 8 };
-
-        Assert.Throws<BadRequestException>(() => tableService.UpdateTable(1, updatedTable));
+        _dbContext.Tables.Add(new TableEntity { Number = 1, Capacity = 4, LocationId = 1 });
+        _dbContext.Tables.Add(new TableEntity { Number = 2, Capacity = 6, LocationId = 2 });
+        _dbContext.SaveChanges();
+        
+        var updatedTable = new TableDTO { Number = 2, Capacity = 8, Location = "Private Room" };
+    
+        Assert.Throws<BadRequestException>(() => _tableService.UpdateTable(1, updatedTable));
+    }
+    
+    
+    [Fact]
+    public void UpdateTable_ShouldThrowException_WhenLocationDoesNotExist()
+    {
+        _dbContext.Tables.Add(new TableEntity { Number = 1, Capacity = 4, LocationId = 1 });
+        _dbContext.SaveChanges();
+    
+        var updatedTable = new TableDTO { Number = 1, Capacity = 6, Location = "Swimming Pool" };
+    
+        Assert.Throws<BadRequestException>(() => _tableService.UpdateTable(1, updatedTable));
     }
     
     
     [Fact]
     public void PatchTable_ShouldReturnUpdatedTable_WhenValidPatch()
     {
-        var tableService = ConfigureTableService();
-        tableService.Tables = new Dictionary<int, Table>
-        {
-            { 1, new Table { Id = 1, Capacity = 4 } }
-        };
+        _dbContext.Tables.Add(new TableEntity { Number = 1, Capacity = 4, LocationId = 1 });
+        _dbContext.SaveChanges();
 
         var patchJson = """{ "capacity": 6 }""";
         var patch = JsonDocument.Parse(patchJson).RootElement;
 
-        var result = tableService.PatchTable(1, patch);
+        var result = _tableService.PatchTable(1, patch);
 
         Assert.NotNull(result);
-        Assert.Equal(1, result.Id);
+        Assert.Equal(1, result.Number);
         Assert.Equal(6, result.Capacity);
+        Assert.Equal("Main Hall", result.Location);
     }
     
     
     [Fact]
     public void PatchTable_ShouldReturnNull_WhenTableDoesNotExist()
     {
-        var tableService = ConfigureTableService();
-
         var patchJson = """{ "capacity": 6 }""";
         var patch = JsonDocument.Parse(patchJson).RootElement;
 
-        var result = tableService.PatchTable(1, patch);
+        var result = _tableService.PatchTable(1, patch);
 
         Assert.Null(result);
     }
     
     
     [Fact]
-    public void PatchTable_ShouldThrowException_WhenTableWithSameIdAlreadyExists()
+    public void PatchTable_ShouldThrowException_WhenTableWithSameNumberAlreadyExists()
     {
-        var tableService = ConfigureTableService();
-        tableService.Tables = new Dictionary<int, Table>
-        {
-            { 1, new Table { Id = 1, Capacity = 4 } },
-            { 2, new Table { Id = 2, Capacity = 6 } }
-        };
+        _dbContext.Tables.Add(new TableEntity { Number = 1, Capacity = 4, LocationId = 1 });
+        _dbContext.Tables.Add(new TableEntity { Number = 2, Capacity = 6, LocationId = 2 });
+        _dbContext.SaveChanges();
 
-        var patchJson = """{ "id": 2 }""";
+        var patchJson = """{ "number": 2 }""";
         var patch = JsonDocument.Parse(patchJson).RootElement;
 
-        Assert.Throws<BadRequestException>(() => tableService.PatchTable(1, patch));
+        Assert.Throws<BadRequestException>(() => _tableService.PatchTable(1, patch));
+    }
+    
+    
+    [Fact]
+    public void PatchTable_ShouldThrowException_WhenLocationDoesNotExist()
+    {
+        _dbContext.Tables.Add(new TableEntity { Number = 1, Capacity = 4, LocationId = 1 });
+        _dbContext.SaveChanges();
+
+        var patchJson = """{ "location": "Swimming Pool" }""";
+        var patch = JsonDocument.Parse(patchJson).RootElement;
+
+        Assert.Throws<BadRequestException>(() => _tableService.PatchTable(1, patch));
     }
     
     
     [Fact]
     public void DeleteTable_ShouldReturnTrue_WhenTableExists()
     {
-        var tableService = ConfigureTableService();
-        tableService.Tables = new Dictionary<int, Table>
-        {
-            { 1, new Table { Id = 1, Capacity = 4 } }
-        };
+        var tableToDelete = new TableEntity { Number = 1, Capacity = 4, LocationId = 1 };
+        _dbContext.Tables.Add(tableToDelete);
+        _dbContext.SaveChanges();
 
-        var result = tableService.DeleteTable(1);
+        var result = _tableService.DeleteTable(1);
 
         Assert.True(result);
-        Assert.Empty(tableService.Tables);
+        Assert.Null(_dbContext.Tables.Find(1));
     }
 
     [Fact]
     public void DeleteTable_ShouldReturnFalse_WhenTableDoesNotExist()
     {
-        var tableService = ConfigureTableService();
-
-        var result = tableService.DeleteTable(777);
+        var result = _tableService.DeleteTable(777);
 
         Assert.False(result);
     }

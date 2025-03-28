@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using DNET.Backend.Api.Models;
+using DNET.Backend.Api.Requests;
 using DNET.Backend.Api.Services;
 
 namespace DNET.Backend.Api.Controllers;
@@ -27,9 +28,9 @@ public class ReservationController : ControllerBase
         return Ok(reservation);
     }
     
-    // GET /reservations?tableId=1&date=2025-02-29
+    // GET /reservations?tableId=1&date=2025-02-29&reservationType=Birthday
     [HttpGet]
-    public IActionResult GetReservations(int? clientId, int? tableId, DateTime? date)
+    public IActionResult GetReservations(int? clientId, int? tableNumber, DateTime? date, String? reservationType)
     {
         // var validParameters = new HashSet<string> { "tableId", "date" };
         // var queryParameters = context.Request.Query.Keys;
@@ -41,7 +42,7 @@ public class ReservationController : ControllerBase
         //     }
         // }
 
-        var reservations = _reservationService.GetAllReservations(clientId, tableId, date);
+        var reservations = _reservationService.GetAllReservations(clientId, tableNumber, date, reservationType);
         if (!reservations.Any())
             return NotFound(new ErrorResponse { Message = "Reservations not found" });
 
@@ -50,25 +51,44 @@ public class ReservationController : ControllerBase
     
     // POST /reservations
     [HttpPost]
-    public IActionResult CreateReservation(Reservation reservation)
+    public IActionResult CreateReservation(CreateUpdateReservationRequest request)
     {
-        var result = _reservationService.AddReservation(reservation);
-        if (result == null)
-            return BadRequest(new ErrorResponse { Message = "Reservation limit exceeded" });
-        
-        return Created($"/reservations/{result.Item1}", result.Item2);
+        try
+        {
+            var result = _reservationService.AddReservation(request);
+            if (result == null)
+                return BadRequest(new ErrorResponse { Message = "Reservation limit exceeded" });
+
+            return Created($"/reservations/{result.Item1}", result.Item2);
+        } catch (BadRequestException badRequestException)
+        {
+            return BadRequest(new ErrorResponse
+            {
+                Message = badRequestException.WrongMessage,
+                Status = badRequestException.WrongCode
+            });
+        }
     }
 
     // PUT /reservations/1
     [HttpPut]
     [Route("{id}")]
-    public IActionResult UpdateReservation(int id, Reservation reservation)
+    public IActionResult UpdateReservation(int id, CreateUpdateReservationRequest request)
     {
-        var updatedReservation = _reservationService.UpdateReservation(id, reservation);
-        if (updatedReservation == null)
-            return NotFound(new ErrorResponse { Message = "Reservation not found" });
-        
-        return Ok(updatedReservation);
+        try {
+            var updatedReservation = _reservationService.UpdateReservation(id, request);
+            if (updatedReservation == null)
+                return NotFound(new ErrorResponse { Message = "Reservation, table or client not found" });
+
+            return Ok(updatedReservation);
+        } catch (BadRequestException badRequestException)
+        {
+            return BadRequest(new ErrorResponse
+            {
+                Message = badRequestException.WrongMessage,
+                Status = badRequestException.WrongCode
+            });
+        }
     }
 
     // DELETE /reservations/1

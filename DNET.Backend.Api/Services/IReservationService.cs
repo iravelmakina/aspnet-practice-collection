@@ -1,17 +1,18 @@
 using DNET.Backend.Api.Models;
+using DNET.Backend.Api.Requests;
 
 namespace DNET.Backend.Api.Services;
 
 public interface IReservationService
 {
 
-    public Reservation? GetReservation(int id);
+    public ReservationDTO? GetReservation(int id);
     
-    public List<Reservation> GetAllReservations(int? clientId, int? tableId, DateTime? date);
+    public List<ReservationDTO> GetAllReservations(int? clientId, int? tableNumber, DateTime? date, String? reservationType);
 
-    public Tuple<int, Reservation>? AddReservation(Reservation reservation);
+    public Tuple<int, ReservationDTO>? AddReservation(CreateUpdateReservationRequest request);
     
-    public Reservation? UpdateReservation(int id, Reservation reservation);
+    public ReservationDTO? UpdateReservation(int id, CreateUpdateReservationRequest request);
     
     public bool DeleteReservation(int id);
 

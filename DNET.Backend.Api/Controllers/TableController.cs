@@ -66,7 +66,7 @@ public class TableController : ControllerBase
     
     // POST /tables
     [HttpPost]
-    public IActionResult CreateTable(Table table)
+    public IActionResult CreateTable(TableDTO table)
     {
         try
         {
@@ -90,7 +90,7 @@ public class TableController : ControllerBase
     // PUT /tables/1
     [HttpPut]
     [Route("{id:int}")]
-    public IActionResult UpdateTable(int id, Table table)
+    public IActionResult UpdateTable(int id, TableDTO table)
     {
         try
         {
