@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DNET.Backend.Api.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using DNET.Backend.Api.Models;
 using DNET.Backend.Api.Services;
@@ -66,6 +67,8 @@ public class TableController : ControllerBase
     
     // POST /tables
     [HttpPost]
+    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
+    [ServiceFilter(typeof(AuthorizationFilter))]
     public IActionResult CreateTable(TableDTO table)
     {
         try
@@ -90,6 +93,8 @@ public class TableController : ControllerBase
     // PUT /tables/1
     [HttpPut]
     [Route("{id:int}")]
+    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
+    [ServiceFilter(typeof(AuthorizationFilter))]
     public IActionResult UpdateTable(int id, TableDTO table)
     {
         try
@@ -115,6 +120,8 @@ public class TableController : ControllerBase
     // PATCH /tables/1
     [HttpPatch]
     [Route("{id:int}")]
+    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
+    [ServiceFilter(typeof(AuthorizationFilter))]
     public IActionResult PatchTable(int id, JsonElement patch)
     {
         try
@@ -140,6 +147,8 @@ public class TableController : ControllerBase
     // DELETE /tables/1
     [HttpDelete]
     [Route("{id:int}")]
+    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
+    [ServiceFilter(typeof(AuthorizationFilter))]
     public IActionResult DeleteTable(int id)
     {
         if (!_tableService.DeleteTable(id))

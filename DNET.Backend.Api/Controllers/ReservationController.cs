@@ -1,3 +1,4 @@
+using DNET.Backend.Api.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using DNET.Backend.Api.Models;
 using DNET.Backend.Api.Requests;
@@ -51,6 +52,8 @@ public class ReservationController : ControllerBase
     
     // POST /reservations
     [HttpPost]
+    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
+    [ServiceFilter(typeof(AuthorizationFilter))]
     public IActionResult CreateReservation(CreateUpdateReservationRequest request)
     {
         try
@@ -73,6 +76,8 @@ public class ReservationController : ControllerBase
     // PUT /reservations/1
     [HttpPut]
     [Route("{id}")]
+    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
+    [ServiceFilter(typeof(AuthorizationFilter))]
     public IActionResult UpdateReservation(int id, CreateUpdateReservationRequest request)
     {
         try {
@@ -94,6 +99,8 @@ public class ReservationController : ControllerBase
     // DELETE /reservations/1
     [HttpDelete]
     [Route("{id}")]
+    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
+    [ServiceFilter(typeof(AuthorizationFilter))]
     public IActionResult DeleteReservation(int id)
     {
         if (!_reservationService.DeleteReservation(id))

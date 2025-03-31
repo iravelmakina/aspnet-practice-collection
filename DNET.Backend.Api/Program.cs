@@ -1,3 +1,4 @@
+using DNET.Backend.Api.Infrastructure;
 using DNET.Backend.Api.Options;
 using DNET.Backend.Api.Services;
 using DNET.Backend.DataAccess;
@@ -20,18 +21,33 @@ builder.Services.AddScoped<ITableService, TableService>();
 builder.Services.Configure<ReservationOptions>(builder.Configuration.GetSection("ReservationSettings"));
 builder.Services.AddScoped<IReservationService, ReservationService>();
 
-builder.Services.AddControllers();
+builder.Services.Configure<AuthorizarionOptions>(builder.Configuration.GetSection("AuthorizarionSettings"));
+builder.Services.AddScoped<AuthorizationFilter>();
+
+builder.Services.AddScoped<LogMiddleware>();
+builder.Services.AddScoped<ExceptionMiddleware>();
+
+
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<TimestampHeaderFilter>();
+});
 
 builder.Services.AddDbContext<TableReservationsDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("TableReservationsDb"))
 );
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(o =>
+{
+    o.OperationFilter<SwaggerHeaderFilter>();
+});
 
 var app = builder.Build();
 
 app.MapControllers();
+app.UseMiddleware<ExceptionMiddleware>();
+app.UseMiddleware<LogMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
