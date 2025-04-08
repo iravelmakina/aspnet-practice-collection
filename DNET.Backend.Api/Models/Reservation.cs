@@ -4,11 +4,11 @@ using DNET.Backend.DataAccess.Domain;
 
 namespace DNET.Backend.Api.Models;
 
-public class ReservationDTO
+public class Reservation
 {
-    public ReservationDTO() { }
+    public Reservation() { }
     
-    public ReservationDTO(ReservationEntity reservation)
+    public Reservation(ReservationEntity reservation)
     {
         TableNumber = reservation.Table.Number;
         StartTime = reservation.StartTime.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);

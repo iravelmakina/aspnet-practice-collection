@@ -10,35 +10,35 @@ public class ExceptionMiddleware : IMiddleware
         {
             await next(context);
         }
-        catch (BadRequestException badRequestException)
+        catch (ServerException e)
         {
+            context.Response.StatusCode = e.WrongCode;
+
             await context.Response.WriteAsJsonAsync(new ErrorResponse
             {
-                Message = badRequestException.WrongMessage,
-                Status = badRequestException.WrongCode
+                Message = e.WrongMessage,
+                Status = e.WrongCode
             });
-
-            context.Response.StatusCode = 400;
         }
         catch (NullReferenceException nullReferenceException)
         {
+            context.Response.StatusCode = 404;
+            
             await context.Response.WriteAsJsonAsync(new ErrorResponse
             {
                 Message = nullReferenceException.Message,
                 Status = 404
             });
-
-            context.Response.StatusCode = 404;
         }
-        catch (Exception ex)
+        catch (System.Exception ex)
         {
+            context.Response.StatusCode = 500;
+
             await context.Response.WriteAsJsonAsync(new ErrorResponse
             {
                 Message = ex.Message,
                 Status = 500
             });
-
-            context.Response.StatusCode = 500;
         }
     }
 }

@@ -1,8 +1,10 @@
 using System.Text.Json;
+using Consul;
 using DNET.Backend.Api.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using DNET.Backend.Api.Models;
 using DNET.Backend.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace DNET.Backend.Api.Controllers;
 
@@ -20,6 +22,7 @@ public class TableController : ControllerBase
     
     //GET /tables (with pagination)
     [HttpGet]
+    [Authorize(Roles = "User, Admin")]
     public IActionResult GetTables(int page = 1, int size = 10)
     {
         var tables = _tableService.GetAllPaginatedTables(page, size);
@@ -28,11 +31,11 @@ public class TableController : ControllerBase
         
         var response = new
         {
-            TotalItems = tables.Item1,
-            Page = tables.Item2,
-            PageSize = tables.Item3,
-            TotalPages = tables.Item4,
-            Items = tables.Item5
+            tables = tables.Tables,
+            totalItems = tables.TotalItems,
+            page = tables.Page,
+            size = tables.Size,
+            totalPages = tables.TotalPages
         };
 
         return Ok(response);
@@ -42,6 +45,7 @@ public class TableController : ControllerBase
     // GET /tables/1
     [HttpGet]
     [Route("{id:int}")]
+    [Authorize(Roles = "User, Admin")]
     public IActionResult GetTable(int id)
     {
         var table = _tableService.GetTable(id);
@@ -55,6 +59,7 @@ public class TableController : ControllerBase
     // GET /tables/filter?capacity=4
     [HttpGet]
     [Route("filter")]
+    [Authorize(Roles = "User, Admin")]
     public IActionResult GetTablesByCapacity(int capacity)
     {
         var tables = _tableService.GetTablesByCapacity(capacity);
@@ -67,9 +72,8 @@ public class TableController : ControllerBase
     
     // POST /tables
     [HttpPost]
-    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
-    [ServiceFilter(typeof(AuthorizationFilter))]
-    public IActionResult CreateTable(TableDTO table)
+    [Authorize(Roles = "Admin")]
+    public IActionResult CreateTable(Table table)
     {
         try
         {
@@ -79,7 +83,7 @@ public class TableController : ControllerBase
             
             return Created($"/tables/{newTable.Item1}", table);
         }
-        catch (BadRequestException badRequestException)
+        catch (ServerException badRequestException)
         {
             return BadRequest(new ErrorResponse
             {
@@ -93,9 +97,8 @@ public class TableController : ControllerBase
     // PUT /tables/1
     [HttpPut]
     [Route("{id:int}")]
-    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
-    [ServiceFilter(typeof(AuthorizationFilter))]
-    public IActionResult UpdateTable(int id, TableDTO table)
+    [Authorize(Roles = "Admin")]
+    public IActionResult UpdateTable(int id, Table table)
     {
         try
         {
@@ -105,7 +108,7 @@ public class TableController : ControllerBase
             
             return Ok(updatedTable);
         }
-        catch (BadRequestException badRequestException)
+        catch (ServerException badRequestException)
         {
             return BadRequest(new ErrorResponse
             {
@@ -120,8 +123,7 @@ public class TableController : ControllerBase
     // PATCH /tables/1
     [HttpPatch]
     [Route("{id:int}")]
-    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
-    [ServiceFilter(typeof(AuthorizationFilter))]
+    [Authorize(Roles = "Admin")]
     public IActionResult PatchTable(int id, JsonElement patch)
     {
         try
@@ -133,7 +135,7 @@ public class TableController : ControllerBase
             return Ok(updatedTable);
 
         }
-        catch (BadRequestException badRequestException)
+        catch (ServerException badRequestException)
         {
             return BadRequest(new ErrorResponse
             {
@@ -147,8 +149,7 @@ public class TableController : ControllerBase
     // DELETE /tables/1
     [HttpDelete]
     [Route("{id:int}")]
-    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
-    [ServiceFilter(typeof(AuthorizationFilter))]
+    [Authorize(Roles = "Admin")]
     public IActionResult DeleteTable(int id)
     {
         if (!_tableService.DeleteTable(id))

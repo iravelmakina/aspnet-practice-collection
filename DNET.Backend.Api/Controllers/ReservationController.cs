@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using DNET.Backend.Api.Models;
 using DNET.Backend.Api.Requests;
 using DNET.Backend.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace DNET.Backend.Api.Controllers;
 
@@ -20,6 +21,7 @@ public class ReservationController : ControllerBase
     // GET /reservations/1
     [HttpGet]
     [Route("{id}")]
+    [Authorize(Roles = "User, Admin")]
     public IActionResult GetReservation(int id)
     {
         var reservation = _reservationService.GetReservation(id);
@@ -31,6 +33,7 @@ public class ReservationController : ControllerBase
     
     // GET /reservations?tableId=1&date=2025-02-29&reservationType=Birthday
     [HttpGet]
+    [Authorize(Roles = "User, Admin")]
     public IActionResult GetReservations(int? clientId, int? tableNumber, DateTime? date, String? reservationType)
     {
         // var validParameters = new HashSet<string> { "tableId", "date" };
@@ -52,8 +55,7 @@ public class ReservationController : ControllerBase
     
     // POST /reservations
     [HttpPost]
-    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
-    [ServiceFilter(typeof(AuthorizationFilter))]
+    [Authorize(Roles = "Admin")]
     public IActionResult CreateReservation(CreateUpdateReservationRequest request)
     {
         try
@@ -63,7 +65,7 @@ public class ReservationController : ControllerBase
                 return BadRequest(new ErrorResponse { Message = "Reservation limit exceeded" });
 
             return Created($"/reservations/{result.Item1}", result.Item2);
-        } catch (BadRequestException badRequestException)
+        } catch (ServerException badRequestException)
         {
             return BadRequest(new ErrorResponse
             {
@@ -76,8 +78,7 @@ public class ReservationController : ControllerBase
     // PUT /reservations/1
     [HttpPut]
     [Route("{id}")]
-    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
-    [ServiceFilter(typeof(AuthorizationFilter))]
+    [Authorize(Roles = "Admin")]
     public IActionResult UpdateReservation(int id, CreateUpdateReservationRequest request)
     {
         try {
@@ -86,7 +87,7 @@ public class ReservationController : ControllerBase
                 return NotFound(new ErrorResponse { Message = "Reservation, table or client not found" });
 
             return Ok(updatedReservation);
-        } catch (BadRequestException badRequestException)
+        } catch (ServerException badRequestException)
         {
             return BadRequest(new ErrorResponse
             {
@@ -99,8 +100,7 @@ public class ReservationController : ControllerBase
     // DELETE /reservations/1
     [HttpDelete]
     [Route("{id}")]
-    [SwaggerHeader("X-API-KEY", "API key", true, "uuid")]
-    [ServiceFilter(typeof(AuthorizationFilter))]
+    [Authorize(Roles = "Admin")]
     public IActionResult DeleteReservation(int id)
     {
         if (!_reservationService.DeleteReservation(id))

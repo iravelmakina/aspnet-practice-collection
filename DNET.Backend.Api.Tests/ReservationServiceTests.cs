@@ -266,7 +266,7 @@ public sealed class ReservationServiceTests
         _dbContext.Reservations.Add(reservation);
         _dbContext.SaveChanges();
 
-        Assert.Throws<BadRequestException>(() => _service.UpdateReservation(1, new CreateUpdateReservationRequest
+        Assert.Throws<ServerException>(() => _service.UpdateReservation(1, new CreateUpdateReservationRequest
         {
             ClientId = 2,
             TableNumber = 2,
@@ -306,7 +306,7 @@ public sealed class ReservationServiceTests
         _dbContext.Reservations.Add(reservation2);
         _dbContext.SaveChanges();
 
-        Assert.Throws<BadRequestException>(() => _service.UpdateReservation(1, new CreateUpdateReservationRequest
+        Assert.Throws<ServerException>(() => _service.UpdateReservation(1, new CreateUpdateReservationRequest
         {
             StartTime = "2025-03-01T17:00:00",
             EndTime = "2025-03-01T18:00:00"

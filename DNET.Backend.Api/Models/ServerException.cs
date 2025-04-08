@@ -1,8 +1,8 @@
 namespace DNET.Backend.Api.Models;
 
-public class BadRequestException : Exception
+public class ServerException : System.Exception
 {
-    public BadRequestException(string wrongMessage, int wrongCode)
+    public ServerException(string wrongMessage, int wrongCode)
     {
         WrongMessage = wrongMessage;
         WrongCode = wrongCode;

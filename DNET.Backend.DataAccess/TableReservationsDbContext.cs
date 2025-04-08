@@ -11,6 +11,9 @@ public class TableReservationsDbContext : DbContext
     public DbSet<ReservationEntity> Reservations { get; set; }
     public DbSet<ReservationDetailEntity> ReservationDetails { get; set; }
     public DbSet<ClientEntity> Clients { get; set; }
+    public DbSet<UserEntity> Users { get; set; }
+    public DbSet<RefreshTokenEntity> RefreshTokens { get; set; }
+    public DbSet<ResetCodeEntity> ResetCodes { get; set; }
     
     public TableReservationsDbContext(DbContextOptions<TableReservationsDbContext> options) : base(options)
     {

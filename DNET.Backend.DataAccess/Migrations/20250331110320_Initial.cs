@@ -44,6 +44,24 @@ namespace DNET.Backend.DataAccess.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "user",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    username = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    first_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    last_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    password = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_user", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "tables",
                 columns: table => new
                 {
@@ -194,6 +212,9 @@ namespace DNET.Backend.DataAccess.Migrations
 
             migrationBuilder.DropTable(
                 name: "reservation_detail");
+
+            migrationBuilder.DropTable(
+                name: "user");
 
             migrationBuilder.DropTable(
                 name: "reservation");

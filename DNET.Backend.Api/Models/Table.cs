@@ -2,15 +2,15 @@ using DNET.Backend.DataAccess.Domain;
 
 namespace DNET.Backend.Api.Models;
 
-public class TableDTO
+public class Table
 {
     public int Number { get; set; }
     public int Capacity { get; set; }
     public string Location { get; set; } = string.Empty;
     
-    public TableDTO() { }
+    public Table() { }
     
-    public TableDTO(TableEntity table)
+    public Table(TableEntity table)
     {
         Number = table.Number;
         Capacity = table.Capacity;

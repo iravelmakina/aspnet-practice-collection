@@ -19,7 +19,7 @@ public class ReservationService : IReservationService
         _dbContext = dbContext;
     }
 
-    public ReservationDTO? GetReservation(int id)
+    public Reservation? GetReservation(int id)
     {
         var reservation = _dbContext.Reservations
             .Include(r => r.ReservationDetail)
@@ -31,10 +31,10 @@ public class ReservationService : IReservationService
         if (reservation == null)
             return null;
     
-        return new ReservationDTO(reservation);
+        return new Reservation(reservation);
     }
     
-    public List<ReservationDTO> GetAllReservations(int? clientId = null, int? tableId = null, DateTime? date = null, String? reservationType = null)
+    public List<Reservation> GetAllReservations(int? clientId = null, int? tableId = null, DateTime? date = null, String? reservationType = null)
     {
         var query = _dbContext.Reservations
             .Include(r => r.ReservationDetail)
@@ -52,10 +52,10 @@ public class ReservationService : IReservationService
         if (reservationType != null)
             query = query.Where(r => r.ReservationDetail.ReservationType.ToString() == reservationType);
 
-        return query.Select(r => new ReservationDTO(r)).ToList();
+        return query.Select(r => new Reservation(r)).ToList();
     }
 
-    public Tuple<int, ReservationDTO>? AddReservation(CreateUpdateReservationRequest request)
+    public Tuple<int, Reservation>? AddReservation(CreateUpdateReservationRequest request)
     {
         if (GetAllReservations(request.ClientId).Count >= _optionsDelegate.CurrentValue.ReservationLimit)
             return null;
@@ -63,7 +63,7 @@ public class ReservationService : IReservationService
         var table = _dbContext.Tables.FirstOrDefault(t => t.Number == request.TableNumber);
         var client = _dbContext.Clients.FirstOrDefault(c => c.Id == request.ClientId);
         if (table == null || client == null)
-            throw new BadRequestException("The table or client doesn't exist", 400);
+            throw new ServerException("The table or client doesn't exist", 400);
         
         var newStartTime = DateTime.SpecifyKind(DateTime.Parse(request.StartTime), DateTimeKind.Utc);
         var newEndTime = DateTime.SpecifyKind(DateTime.Parse(request.EndTime), DateTimeKind.Utc);
@@ -71,7 +71,7 @@ public class ReservationService : IReservationService
             .FirstOrDefault(r => r.TableId == table.Id &&
                             r.StartTime < newEndTime && r.EndTime > newStartTime);
         if (conflictingReservation != null)
-            throw new BadRequestException("The table is reserved for the time specified", 400);
+            throw new ServerException("The table is reserved for the time specified", 400);
 
         var reservationEntity = new ReservationEntity
         {
@@ -97,10 +97,10 @@ public class ReservationService : IReservationService
         _dbContext.ReservationDetails.Add(reservationDetailEntity);
         _dbContext.SaveChanges();
         
-        return new Tuple<int, ReservationDTO>(reservationEntity.Id, new ReservationDTO(reservationEntity));
+        return new Tuple<int, Reservation>(reservationEntity.Id, new Reservation(reservationEntity));
     }
 
-    public ReservationDTO? UpdateReservation(int id, CreateUpdateReservationRequest request)
+    public Reservation? UpdateReservation(int id, CreateUpdateReservationRequest request)
     {
         var existingReservation = _dbContext.Reservations.FirstOrDefault(r => r.Id == id);
         if (existingReservation == null)
@@ -109,7 +109,7 @@ public class ReservationService : IReservationService
         var table = _dbContext.Tables.FirstOrDefault(t => t.Number == request.TableNumber);
         var client = _dbContext.Clients.FirstOrDefault(c => c.Id == request.ClientId);
         if (table == null || client == null)
-            throw new BadRequestException("The table or client doesn't exist", 400);
+            throw new ServerException("The table or client doesn't exist", 400);
         
         
         var newStartTime = DateTime.SpecifyKind(DateTime.Parse(request.StartTime), DateTimeKind.Utc);
@@ -119,7 +119,7 @@ public class ReservationService : IReservationService
             .FirstOrDefault(r => r.Id != existingReservation.Id && r.TableId == table.Id &&
                             r.StartTime < newEndTime && r.EndTime > newStartTime);
         if (conflictingReservation != null)
-            throw new BadRequestException("The table is reserved for the time specified", 400);
+            throw new ServerException("The table is reserved for the time specified", 400);
 
         existingReservation.TableId = table.Id;
         existingReservation.ClientId = request.ClientId;
@@ -133,7 +133,7 @@ public class ReservationService : IReservationService
 
         _dbContext.SaveChanges();
 
-        return new ReservationDTO(existingReservation);
+        return new Reservation(existingReservation);
     }
 
     public bool DeleteReservation(int id)

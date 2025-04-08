@@ -54,17 +54,17 @@ public sealed class TableServiceTests
         var result = _tableService.GetAllPaginatedTables(2, 3);
 
         Assert.NotNull(result);
-        Assert.Equal(6, result.Item1);
-        Assert.Equal(2, result.Item2);
-        Assert.Equal(3, result.Item3);
-        Assert.Equal(2, result.Item4);
-        Assert.Equal(3, result.Item5.Count);
-        Assert.Equal(4, result.Item5.First().Number);
-        Assert.Equal(4, result.Item5.First().Capacity);
-        Assert.Equal("Bar", result.Item5.First().Location);
-        Assert.Equal(6, result.Item5.Last().Number);
-        Assert.Equal(6, result.Item5.Last().Capacity);
-        Assert.Equal("Garden", result.Item5.Last().Location);
+        Assert.Equal(6, result.TotalItems);
+        Assert.Equal(2, result.Page);
+        Assert.Equal(3, result.Size);
+        Assert.Equal(2, result.TotalPages);
+        Assert.Equal(3, result.Tables.Count);
+        Assert.Equal(4, result.Tables.First().Number);
+        Assert.Equal(4, result.Tables.First().Capacity);
+        Assert.Equal("Bar", result.Tables.First().Location);
+        Assert.Equal(6, result.Tables.Last().Number);
+        Assert.Equal(6, result.Tables.Last().Capacity);
+        Assert.Equal("Garden", result.Tables.Last().Location);
     }
     
     
@@ -133,7 +133,7 @@ public sealed class TableServiceTests
     [Fact]
     public void CreateTable_ShouldReturnCreatedTuple_WhenAllowed()
     {
-        var newTable = new TableDTO { Number = 1, Capacity = 4, Location = "Main Hall" };
+        var newTable = new Table { Number = 1, Capacity = 4, Location = "Main Hall" };
 
         var result = _tableService.CreateTable(newTable);
         
@@ -153,7 +153,7 @@ public sealed class TableServiceTests
         
         var disabledService = new TableService(_dbContext, options.Object);
 
-        var newTable = new TableDTO { Number = 1, Capacity = 4, Location = "Main Hall" };
+        var newTable = new Table { Number = 1, Capacity = 4, Location = "Main Hall" };
     
         var result = disabledService.CreateTable(newTable);
     
@@ -168,18 +168,18 @@ public sealed class TableServiceTests
         _dbContext.Tables.Add(new TableEntity { Number = 1, Capacity = 4, LocationId = 1 });
         _dbContext.SaveChanges();
     
-        var newTable = new TableDTO { Number = 1, Capacity = 6, Location = "Patio" };
+        var newTable = new Table { Number = 1, Capacity = 6, Location = "Patio" };
     
-        Assert.Throws<BadRequestException>(() => _tableService.CreateTable(newTable));
+        Assert.Throws<ServerException>(() => _tableService.CreateTable(newTable));
     }
     
     
     [Fact]
     public void CreateTable_ShouldThrowException_WhenLocationDoesNotExist()
     {
-        var newTable = new TableDTO { Number = 1, Capacity = 4, Location = "Swimming Pool" };
+        var newTable = new Table { Number = 1, Capacity = 4, Location = "Swimming Pool" };
     
-        Assert.Throws<BadRequestException>(() => _tableService.CreateTable(newTable));
+        Assert.Throws<ServerException>(() => _tableService.CreateTable(newTable));
     }
     
     
@@ -189,7 +189,7 @@ public sealed class TableServiceTests
         _dbContext.Tables.Add(new TableEntity { Number = 1, Capacity = 4, LocationId = 1 });
         _dbContext.SaveChanges();
     
-        var updatedTable = new TableDTO { Number = 1, Capacity = 6, Location = "Patio" };
+        var updatedTable = new Table { Number = 1, Capacity = 6, Location = "Patio" };
     
     
         var result = _tableService.UpdateTable(1, updatedTable);
@@ -204,7 +204,7 @@ public sealed class TableServiceTests
     [Fact]
     public void UpdateTable_ShouldReturnNull_WhenTableDoesNotExist()
     {
-        var updatedTable = new TableDTO { Number = 1, Capacity = 6, Location = "Main Hall" };
+        var updatedTable = new Table { Number = 1, Capacity = 6, Location = "Main Hall" };
     
         var result = _tableService.UpdateTable(1, updatedTable);
     
@@ -219,9 +219,9 @@ public sealed class TableServiceTests
         _dbContext.Tables.Add(new TableEntity { Number = 2, Capacity = 6, LocationId = 2 });
         _dbContext.SaveChanges();
         
-        var updatedTable = new TableDTO { Number = 2, Capacity = 8, Location = "Private Room" };
+        var updatedTable = new Table { Number = 2, Capacity = 8, Location = "Private Room" };
     
-        Assert.Throws<BadRequestException>(() => _tableService.UpdateTable(1, updatedTable));
+        Assert.Throws<ServerException>(() => _tableService.UpdateTable(1, updatedTable));
     }
     
     
@@ -231,9 +231,9 @@ public sealed class TableServiceTests
         _dbContext.Tables.Add(new TableEntity { Number = 1, Capacity = 4, LocationId = 1 });
         _dbContext.SaveChanges();
     
-        var updatedTable = new TableDTO { Number = 1, Capacity = 6, Location = "Swimming Pool" };
+        var updatedTable = new Table { Number = 1, Capacity = 6, Location = "Swimming Pool" };
     
-        Assert.Throws<BadRequestException>(() => _tableService.UpdateTable(1, updatedTable));
+        Assert.Throws<ServerException>(() => _tableService.UpdateTable(1, updatedTable));
     }
     
     
@@ -277,7 +277,7 @@ public sealed class TableServiceTests
         var patchJson = """{ "number": 2 }""";
         var patch = JsonDocument.Parse(patchJson).RootElement;
 
-        Assert.Throws<BadRequestException>(() => _tableService.PatchTable(1, patch));
+        Assert.Throws<ServerException>(() => _tableService.PatchTable(1, patch));
     }
     
     
@@ -290,7 +290,7 @@ public sealed class TableServiceTests
         var patchJson = """{ "location": "Swimming Pool" }""";
         var patch = JsonDocument.Parse(patchJson).RootElement;
 
-        Assert.Throws<BadRequestException>(() => _tableService.PatchTable(1, patch));
+        Assert.Throws<ServerException>(() => _tableService.PatchTable(1, patch));
     }
     
     

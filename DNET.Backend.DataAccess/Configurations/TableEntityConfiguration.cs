@@ -27,10 +27,5 @@ public class TableEntityConfiguration : IEntityTypeConfiguration<TableEntity>
         
         builder.Property(t => t.LocationId)
             .HasColumnName("location_id");
-
-        builder.HasOne(t => t.Location)
-            .WithMany(l => l.Tables) // one Location → many Tables
-            .HasForeignKey(t => t.LocationId)
-            .OnDelete(DeleteBehavior.Restrict);
     }
 }

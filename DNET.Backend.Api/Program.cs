@@ -2,6 +2,10 @@ using DNET.Backend.Api.Infrastructure;
 using DNET.Backend.Api.Options;
 using DNET.Backend.Api.Services;
 using DNET.Backend.DataAccess;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.OpenApi.Models;
 using Winton.Extensions.Configuration.Consul;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,12 +25,12 @@ builder.Services.AddScoped<ITableService, TableService>();
 builder.Services.Configure<ReservationOptions>(builder.Configuration.GetSection("ReservationSettings"));
 builder.Services.AddScoped<IReservationService, ReservationService>();
 
-builder.Services.Configure<AuthorizarionOptions>(builder.Configuration.GetSection("AuthorizarionSettings"));
-builder.Services.AddScoped<AuthorizationFilter>();
+builder.Services.AddSingleton<IJwtValidator, JwtValidator>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
 builder.Services.AddScoped<LogMiddleware>();
 builder.Services.AddScoped<ExceptionMiddleware>();
-
 
 builder.Services.AddControllers(options =>
 {
@@ -37,10 +41,43 @@ builder.Services.AddDbContext<TableReservationsDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("TableReservationsDb"))
 );
 
+builder.Services
+    .AddAuthentication(opt =>
+    {
+        opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        opt.DefaultSignInScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddGoogle(options =>
+    {
+        var clientId = builder.Configuration["Authentication:Google:ClientId"] ??
+                       throw new ArgumentNullException("ClientId");
+        var clientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ??
+                           throw new ArgumentNullException("ClientSecret");
+
+        options.ClientId = clientId;
+        options.ClientSecret = clientSecret;
+        options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options => { options.TokenValidationParameters = JwtValidator.CreateTokenValidationParameters(); })
+    .AddCookie();
+
+builder.Services.AddAuthorization();
+
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(o =>
+builder.Services.AddSwaggerGen(option =>
 {
-    o.OperationFilter<SwaggerHeaderFilter>();
+    option.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        In = ParameterLocation.Header,
+        Description = "Please enter a valid token",
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        BearerFormat = "JWT",
+        Scheme = "Bearer"
+    });
+    
+    option.OperationFilter<SwaggerHeaderFilter>();
 });
 
 var app = builder.Build();
@@ -49,12 +86,19 @@ app.MapControllers();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<LogMiddleware>();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+using var scope = app.Services.CreateScope();
+var dbContext = scope.ServiceProvider.GetRequiredService<TableReservationsDbContext>();
+dbContext.Database.Migrate();
 
 app.Run();
 

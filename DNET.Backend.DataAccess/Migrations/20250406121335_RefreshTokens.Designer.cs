@@ -3,6 +3,7 @@ using System;
 using DNET.Backend.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DNET.Backend.DataAccess.Migrations
 {
     [DbContext(typeof(TableReservationsDbContext))]
-    partial class TableReservationsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250406121335_RefreshTokens")]
+    partial class RefreshTokens
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -254,41 +257,6 @@ namespace DNET.Backend.DataAccess.Migrations
                     b.ToTable("reservation", (string)null);
                 });
 
-            modelBuilder.Entity("DNET.Backend.DataAccess.Domain.ResetCodeEntity", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(6)
-                        .HasColumnType("character varying(6)")
-                        .HasColumnName("code");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expires_at");
-
-                    b.Property<int?>("UserEntityId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserEntityId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("reset_codes", (string)null);
-                });
-
             modelBuilder.Entity("DNET.Backend.DataAccess.Domain.TableEntity", b =>
                 {
                     b.Property<int>("Id")
@@ -349,10 +317,9 @@ namespace DNET.Backend.DataAccess.Migrations
                         .HasColumnName("last_name");
 
                     b.Property<string>("LoginProvider")
-                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
-                        .HasColumnName("role");
+                        .HasColumnName("login_provider");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -365,10 +332,6 @@ namespace DNET.Backend.DataAccess.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
                         .HasColumnName("password_salt");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<string>("Username")
                         .IsRequired()
@@ -433,21 +396,6 @@ namespace DNET.Backend.DataAccess.Migrations
                     b.Navigation("Table");
                 });
 
-            modelBuilder.Entity("DNET.Backend.DataAccess.Domain.ResetCodeEntity", b =>
-                {
-                    b.HasOne("DNET.Backend.DataAccess.Domain.UserEntity", null)
-                        .WithMany("ResetCodes")
-                        .HasForeignKey("UserEntityId");
-
-                    b.HasOne("DNET.Backend.DataAccess.Domain.UserEntity", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("DNET.Backend.DataAccess.Domain.TableEntity", b =>
                 {
                     b.HasOne("DNET.Backend.DataAccess.Domain.LocationEntity", "Location")
@@ -481,11 +429,6 @@ namespace DNET.Backend.DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("Reservations");
-                });
-
-            modelBuilder.Entity("DNET.Backend.DataAccess.Domain.UserEntity", b =>
-                {
-                    b.Navigation("ResetCodes");
                 });
 #pragma warning restore 612, 618
         }
