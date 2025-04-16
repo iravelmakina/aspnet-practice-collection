@@ -54,7 +54,7 @@ public class UserEntityConfiguration : IEntityTypeConfiguration<UserEntity>
             .HasMaxLength(256)
             .IsRequired(false);
         
-        builder.Property(e => e.LoginProvider)
+        builder.Property(e => e.Role)
             .HasColumnName("role")
             .HasMaxLength(256)
             .IsRequired();

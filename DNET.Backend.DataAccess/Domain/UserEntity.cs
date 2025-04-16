@@ -11,7 +11,7 @@ public class UserEntity
     public string? PasswordSalt { get; set; } = String.Empty;
     public DateTime CreatedAt { get; set; }
     public string? LoginProvider { get; set; }
-    public string Role { get; set; }
+    public string Role { get; set; } = "User";
     
     // Navigation property
     public List<ResetCodeEntity> ResetCodes { get; set; } = new();

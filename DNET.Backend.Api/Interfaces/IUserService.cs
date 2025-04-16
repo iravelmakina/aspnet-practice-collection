@@ -14,7 +14,7 @@ public interface IUserService
     public User? GetUser(int id);
     public User? LoginUser(LoginUserRequest request);
     public (User user, AuthResult authResult) LoginWithGoogle(List<Claim> claims);
-    public ResetCodeEntity GenerateResetCode(string email);
+    public Task SendResetCode(string email);
     public User ResetPassword(string email, string resetCode, string newPassword);
     public IJwtValidator GetJWTvalidator();
 }

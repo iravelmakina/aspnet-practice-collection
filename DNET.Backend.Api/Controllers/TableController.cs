@@ -13,22 +13,24 @@ namespace DNET.Backend.Api.Controllers;
 public class TableController : ControllerBase
 {
     private readonly ITableService _tableService;
-    
+
     public TableController(ITableService tableService)
     {
         _tableService = tableService;
     }
-    
-    
+
+
     //GET /tables (with pagination)
     [HttpGet]
     [Authorize(Roles = "User, Admin")]
+    [SwaggerHeader("If-None-Match", "ETag", false, "string")]
+    [ServiceFilter(typeof(ETagFilter))]
     public IActionResult GetTables(int page = 1, int size = 10)
     {
         var tables = _tableService.GetAllPaginatedTables(page, size);
         if (tables == null)
             return NotFound(new ErrorResponse { Message = "Tables not found" });
-        
+
         var response = new
         {
             tables = tables.Tables,
@@ -40,36 +42,40 @@ public class TableController : ControllerBase
 
         return Ok(response);
     }
-    
-    
+
+
     // GET /tables/1
     [HttpGet]
     [Route("{id:int}")]
     [Authorize(Roles = "User, Admin")]
+    [SwaggerHeader("If-None-Match", "ETag", false, "string")]
+    [ServiceFilter(typeof(ETagFilter))]
     public IActionResult GetTable(int id)
     {
         var table = _tableService.GetTable(id);
         if (table == null)
             return NotFound(new ErrorResponse { Message = "Table not found" });
-        
+
         return Ok(table);
     }
-    
-    
+
+
     // GET /tables/filter?capacity=4
     [HttpGet]
     [Route("filter")]
     [Authorize(Roles = "User, Admin")]
+    [SwaggerHeader("If-None-Match", "ETag", false, "string")]
+    [ServiceFilter(typeof(ETagFilter))] 
     public IActionResult GetTablesByCapacity(int capacity)
     {
         var tables = _tableService.GetTablesByCapacity(capacity);
         if (tables == null)
             return NotFound(new ErrorResponse { Message = "Table not found" });
-        
+
         return Ok(tables);
     }
-    
-    
+
+
     // POST /tables
     [HttpPost]
     [Authorize(Roles = "Admin")]
@@ -80,7 +86,7 @@ public class TableController : ControllerBase
             var newTable = _tableService.CreateTable(table);
             if (newTable == null)
                 return StatusCode(403, new { error = "Table creation is currently disabled." });
-            
+
             return Created($"/tables/{newTable.Item1}", table);
         }
         catch (ServerException badRequestException)
@@ -92,8 +98,8 @@ public class TableController : ControllerBase
             });
         }
     }
-    
-    
+
+
     // PUT /tables/1
     [HttpPut]
     [Route("{id:int}")]
@@ -105,7 +111,7 @@ public class TableController : ControllerBase
             var updatedTable = _tableService.UpdateTable(id, table);
             if (updatedTable == null)
                 return NotFound(new ErrorResponse { Message = "Table not found" });
-            
+
             return Ok(updatedTable);
         }
         catch (ServerException badRequestException)
@@ -116,10 +122,9 @@ public class TableController : ControllerBase
                 Status = badRequestException.WrongCode
             });
         }
-        
     }
-    
-    
+
+
     // PATCH /tables/1
     [HttpPatch]
     [Route("{id:int}")]
@@ -133,7 +138,6 @@ public class TableController : ControllerBase
                 return NotFound(new ErrorResponse { Message = "Table not found" });
 
             return Ok(updatedTable);
-
         }
         catch (ServerException badRequestException)
         {
@@ -144,8 +148,8 @@ public class TableController : ControllerBase
             });
         }
     }
-    
-    
+
+
     // DELETE /tables/1
     [HttpDelete]
     [Route("{id:int}")]
@@ -154,7 +158,7 @@ public class TableController : ControllerBase
     {
         if (!_tableService.DeleteTable(id))
             return NotFound(new ErrorResponse { Message = "Table not found" });
-        
+
         return NoContent();
-    } 
+    }
 }

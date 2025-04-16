@@ -153,12 +153,13 @@ public class UserController : ControllerBase
 
     [HttpGet]
     [Route("forget-password")]
-    public IActionResult ForgetPassword([FromQuery] string email)
+    public async Task<IActionResult> ForgetPassword([FromQuery] string email)
     {
         try
         {
-            var resetCode = _userService.GenerateResetCode(email);
-            return Ok(new { ResetCode = resetCode.Code, Expiration = resetCode.ExpiresAt });
+            await _userService.SendResetCode(email);
+            
+            return Ok(new { Message = "Please check your email for a reset code" });
         }
         catch (ServerException e)
         {

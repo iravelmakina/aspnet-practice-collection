@@ -1,12 +1,8 @@
+using System.Net;
 using System.Security.Claims;
-using Consul;
 using DNET.Backend.Api.Models;
 using DNET.Backend.DataAccess;
 using DNET.Backend.DataAccess.Domain;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Google;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.IdentityModel.Tokens;
 
 namespace DNET.Backend.Api.Services;
 
@@ -14,13 +10,13 @@ public class UserService : IUserService
 {
     private readonly TableReservationsDbContext _dbContext;
     private readonly IJwtValidator _jwtValidator;
-    private IConfiguration _configuration;
+    private readonly IHttpService _httpService;
     
-    public UserService(TableReservationsDbContext dbContext, IJwtValidator jwtValidator, IConfiguration configuration)
+    public UserService(TableReservationsDbContext dbContext, IJwtValidator jwtValidator, IHttpService httpService)
     {
         _dbContext = dbContext;
         _jwtValidator = jwtValidator;
-        _configuration = configuration;
+        _httpService = httpService;
     }
 
     public User RegisterUser(RegisterUserRequest request)
@@ -130,21 +126,34 @@ public class UserService : IUserService
         return (new User(user), authResult);
     }
 
-    
-    
-    public ResetCodeEntity GenerateResetCode(string email)
+
+
+    public async Task SendResetCode(string email)
     {
         var trimmedEmail = email.Trim().ToLower();
-        
+
         var user = _dbContext.Users
             .FirstOrDefault(u => u.Email == trimmedEmail);
-        
+
         if (user == null)
             throw new ServerException("User not found", 404);
-        
+
+        if (user.LoginProvider != "Local")
+            throw new ServerException("No password for Google login", 400);
         
         var resetCode = GenerateRandomCode();
         var expiration = DateTime.UtcNow.AddMinutes(15);
+        var emailBody = $@"
+        <html>
+            <body>
+                <p>Use this code to reset your password within the next 15 minutes.</p>
+                <h1 style='font-size: 48px; font-weight: bold;'>{resetCode}</h1>
+                <p>If you did not request a password reset, please ignore this email.</p>
+            </body>
+        </html>
+        ";
+
+        await _httpService.SendMailAsync(email, "Table Reservations Password Reset", emailBody);
 
         var resetRequest = new ResetCodeEntity
         {
@@ -155,8 +164,6 @@ public class UserService : IUserService
 
         _dbContext.ResetCodes.Add(resetRequest);
         _dbContext.SaveChanges();
-
-        return resetRequest;
     }
 
     public User ResetPassword(string email, string resetCode, string newPassword)
@@ -181,7 +188,7 @@ public class UserService : IUserService
         var salt = Guid.NewGuid().ToString();
         user.PasswordHash = HashPassword(newPassword, salt);
         user.PasswordSalt = salt;
-        
+
         _dbContext.ResetCodes.Remove(resetRequest);
         _dbContext.SaveChanges();
 

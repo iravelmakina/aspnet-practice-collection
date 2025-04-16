@@ -1,5 +1,4 @@
 using System.Reflection;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
@@ -10,46 +9,42 @@ public sealed class SwaggerHeaderFilter : IOperationFilter
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
         operation.Parameters ??= new List<OpenApiParameter>();
-        
-        var allowAnonymousAttributes = context
-            .MethodInfo
-            .GetCustomAttributes<AllowAnonymousAttribute>();
-
-        if (allowAnonymousAttributes.Any())
-            return;
 
         var methodHeaders = context
             .MethodInfo
-            .GetCustomAttributes<AuthorizeAttribute>();
+            .GetCustomAttributes<SwaggerHeaderAttribute>();
 
         var controllerHeaders = context
             .MethodInfo
             .DeclaringType?
-            .GetCustomAttributes<AuthorizeAttribute>() ?? [];
+            .GetCustomAttributes<SwaggerHeaderAttribute>() ?? [];
 
         var headers = controllerHeaders
             .Union(methodHeaders)
             .ToList();
 
-        if (headers.Count == 0)
+        if (!headers.Any())
             return;
 
-        operation.Security = new List<OpenApiSecurityRequirement>
+        foreach (var header in headers)
         {
-            new()
+            var existingParam = operation.Parameters.FirstOrDefault(p => p.In == ParameterLocation.Header && p.Name == header.Name);
+            if (existingParam != null)
+                operation.Parameters.Remove(existingParam);
+
+            operation.Parameters.Add(new OpenApiParameter
             {
+                Name = header.Name,
+                In = ParameterLocation.Header,
+                Description = header.Description,
+                Required = header.Required,
+                Schema = new OpenApiSchema
                 {
-                    new OpenApiSecurityScheme
-                    {
-                        Reference = new OpenApiReference
-                        {
-                            Type = ReferenceType.SecurityScheme,
-                            Id = "Bearer"
-                        }
-                    },
-                    new List<string>()
+                    Type = "string",
+                    Format = header.Format
                 }
-            }
-        };
+            });
+        }
+
     }
 }
