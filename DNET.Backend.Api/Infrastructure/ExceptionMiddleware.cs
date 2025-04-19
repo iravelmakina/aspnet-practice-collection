@@ -45,16 +45,19 @@ public class ExceptionMiddleware : IMiddleware
         }
         catch (System.Exception ex)
         {
-            _logger.LogWarning("Unexpected exception {StatusCode} occurred while processing {Path}: {Message}", 
-                500, context.Request.Path, ex.Message);
-            
-            context.Response.StatusCode = 500;
-
-            await context.Response.WriteAsJsonAsync(new ErrorResponse
+            if (!context.Response.HasStarted)
             {
-                Message = ex.Message,
-                Status = 500
-            });
+                _logger.LogWarning("Unexpected exception {StatusCode} occurred while processing {Path}: {Message}",
+                    500, context.Request.Path, ex.Message);
+
+                context.Response.StatusCode = 500;
+
+                await context.Response.WriteAsJsonAsync(new ErrorResponse
+                {
+                    Message = ex.Message,
+                    Status = 500
+                });
+            }
         }
     }
 }

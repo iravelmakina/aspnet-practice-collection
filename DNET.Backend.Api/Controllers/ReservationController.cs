@@ -29,7 +29,7 @@ public class ReservationController : ControllerBase
         
         var reservation = _reservationService.GetReservation(id);
         if (reservation == null)
-            return NotFound(new ErrorResponse { Message = "Reservation not found" });
+            return NotFound(new ErrorResponse { Message = "Reservation not found", Status = 404});
     
         _logger.LogInformation("Fetched reservation with ID {Id} for table No{TableNumber} {StartTime} – {EndTime}", 
             id, reservation.TableNumber, reservation.StartTime, reservation.EndTime);
@@ -48,7 +48,7 @@ public class ReservationController : ControllerBase
         
         var reservations = _reservationService.GetAllReservations(clientId, tableNumber, date, reservationType);
         if (!reservations.Any())
-            return NotFound(new ErrorResponse { Message = "Reservations not found" });
+            return NotFound(new ErrorResponse { Message = "Reservations not found", Status = 404});
         
         _logger.LogInformation(
             "Fetched {Count} reservations for clientId={ClientId}, tableNumber={TableNumber}, date={Date}, reservationType={ReservationType}",
@@ -67,7 +67,7 @@ public class ReservationController : ControllerBase
         
         var result = _reservationService.AddReservation(request);
         if (result == null)
-            return BadRequest(new ErrorResponse { Message = "Reservation limit exceeded" });
+            return BadRequest(new ErrorResponse { Message = "Reservation limit exceeded", Status = 400});
         
         _logger.LogInformation("Created reservation for table No{TableNumber} {StartTime} – {EndTime} with ID={Id}", 
             result.Item2.TableNumber, result.Item2.StartTime, result.Item2.EndTime, result.Item1);
@@ -86,7 +86,7 @@ public class ReservationController : ControllerBase
         
         var updatedReservation = _reservationService.UpdateReservation(id, request);
         if (updatedReservation == null)
-            return NotFound(new ErrorResponse { Message = "Reservation, table or client not found" });
+            return NotFound(new ErrorResponse { Message = "Reservation, table or client not found", Status = 404 });
 
         _logger.LogInformation("Updated reservation for table No{TableNumber} {StartTime} – {EndTime} with ID={Id}", 
             updatedReservation.TableNumber, updatedReservation.StartTime, updatedReservation.EndTime, id);
@@ -103,7 +103,7 @@ public class ReservationController : ControllerBase
         _logger.LogInformation("Deleting reservation with ID={Id}", id);
 
         if (!_reservationService.DeleteReservation(id))
-            return NotFound(new ErrorResponse { Message = "Reservation not found" });
+            return NotFound(new ErrorResponse { Message = "Reservation not found", Status = 404});
         
         _logger.LogInformation("Deleted reservation with ID={Id}", id);
         

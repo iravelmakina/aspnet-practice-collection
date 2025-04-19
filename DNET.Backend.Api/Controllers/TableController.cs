@@ -33,7 +33,7 @@ public class TableController : ControllerBase
         
         var tables = _tableService.GetAllPaginatedTables(page, size);
         if (tables == null)
-            return NotFound(new ErrorResponse { Message = "Tables not found" });
+            return NotFound(new ErrorResponse { Message = "Tables not found", Status = 404 });
 
         var response = new
         {
@@ -62,7 +62,7 @@ public class TableController : ControllerBase
         
         var table = _tableService.GetTable(id);
         if (table == null)
-            return NotFound(new ErrorResponse { Message = "Table not found" });
+            return NotFound(new ErrorResponse { Message = "Table not found", Status = 404 });
 
         _logger.LogInformation("Fetched table with ID={Id}", id);
         
@@ -82,7 +82,7 @@ public class TableController : ControllerBase
         
         var tables = _tableService.GetTablesByCapacity(capacity);
         if (tables == null)
-            return NotFound(new ErrorResponse { Message = "Table not found" });
+            return NotFound(new ErrorResponse { Message = "Tables not found", Status = 404 });
         
         _logger.LogInformation("Fetched {Count} tables with capacity={Capacity}", tables.Count, capacity);
 
@@ -117,7 +117,7 @@ public class TableController : ControllerBase
 
        var updatedTable = _tableService.UpdateTable(id, table);
         if (updatedTable == null)
-            return NotFound(new ErrorResponse { Message = "Table not found" });
+            return NotFound(new ErrorResponse { Message = "Table not found", Status = 404 });
 
         _logger.LogInformation("Updated table No{TableNumber} with ID={Id}", updatedTable.Number, id);
         
@@ -135,7 +135,7 @@ public class TableController : ControllerBase
         
         var updatedTable = _tableService.PatchTable(id, patch);
         if (updatedTable == null)
-            return NotFound(new ErrorResponse { Message = "Table not found" });
+            return NotFound(new ErrorResponse { Message = "Table not found", Status = 404 });
         
         _logger.LogInformation("Patched table with ID={Id}", id);
         
@@ -152,7 +152,7 @@ public class TableController : ControllerBase
         _logger.LogInformation("Deleting table with ID {Id}", id);
         
         if (!_tableService.DeleteTable(id))
-            return NotFound(new ErrorResponse { Message = "Table not found" });
+            return NotFound(new ErrorResponse { Message = "Table not found", Status = 404 });
 
         _logger.LogInformation("Deleted table with ID {Id}", id);
         

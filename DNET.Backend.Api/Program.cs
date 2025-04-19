@@ -1,4 +1,5 @@
 using DNET.Backend.Api.Infrastructure;
+using DNET.Backend.Api.Models;
 using DNET.Backend.Api.Options;
 using DNET.Backend.Api.Services;
 using DNET.Backend.DataAccess;
@@ -96,7 +97,33 @@ builder.Services
         options.ClientSecret = clientSecret;
         options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     })
-    .AddJwtBearer(options => { options.TokenValidationParameters = JwtValidator.CreateTokenValidationParameters(); })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = JwtValidator.CreateTokenValidationParameters();
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                context.Response.StatusCode = 403;
+                
+                return context.Response.WriteAsJsonAsync(new ErrorResponse
+                {
+                    Status = 403,
+                    Message = "You do not have the required role to perform this action"
+                });
+            },
+            OnChallenge = context =>
+            {
+                context.Response.StatusCode = 401;
+                
+                return context.Response.WriteAsJsonAsync(new ErrorResponse
+                {
+                    Status = 401,
+                    Message = "Unauthorized. Invalid or expired token"
+                });
+            }
+        };
+    })
     .AddCookie();
 
 builder.Services.AddAuthorization();
