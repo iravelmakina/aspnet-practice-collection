@@ -49,13 +49,14 @@ public class UserService : IUserService
         return new User(user);
     }
 
+    
     public User? GetUser(int id)
     {
         var user = _dbContext.Users
             .FirstOrDefault(u => u.Id == id);
 
         if (user == null)
-            return null;
+            throw new ServerException("User not found", 404);
 
         return new User(user);
     }
@@ -68,14 +69,14 @@ public class UserService : IUserService
             .FirstOrDefault(u => u.Email == trimmedEmail);
 
         if (user == null)
-            return null;
+            throw new ServerException("User not found", 404);
         
         if (user.LoginProvider == null)
             throw new ServerException("Invalid login provider", 401);
 
         var hashedPassword = HashPassword(request.Password, user.PasswordSalt);
         if (user.PasswordHash != hashedPassword)
-            return null;
+            throw new ServerException("Invalid password", 401);
 
         return new User(user);
     }
@@ -153,7 +154,7 @@ public class UserService : IUserService
         </html>
         ";
 
-        await _httpService.SendMailAsync(email, "Table Reservations Password Reset", emailBody);
+        await _httpService.SendMailAsync(trimmedEmail, "Table Reservations Password Reset", emailBody);
 
         var resetRequest = new ResetCodeEntity
         {
@@ -208,7 +209,7 @@ public class UserService : IUserService
         return random.Next(100000, 999999).ToString(); // 6-digit code
     }
     
-    private static string HashPassword(string password, string salt)
+    public static string HashPassword(string password, string salt)
     {
         using var sha256 = System.Security.Cryptography.SHA256.Create();
         var hash = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password + salt));
