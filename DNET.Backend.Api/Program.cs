@@ -10,6 +10,9 @@ using Microsoft.EntityFrameworkCore;
 using Polly;
 using Polly.Extensions.Http;
 using Polly.Timeout;
+using Serilog;
+using Serilog.Formatting.Compact;
+using Serilog.Formatting.Json;
 using StackExchange.Redis;
 using Policy = Polly.Policy;
 
@@ -115,6 +118,17 @@ builder.Services.AddSwaggerGen(option =>
     option.OperationFilter<SwaggerHeaderFilter>();
 });
 
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+    .WriteTo.Console(formatter: context.HostingEnvironment.IsDevelopment()
+        ? new JsonFormatter()
+        : new Serilog.Formatting.Display.MessageTemplateTextFormatter(
+            "[{Timestamp:HH:mm:ss} {Level}] {Message}{NewLine}{Exception}"
+        ));
+});
+
 var app = builder.Build();
 
 app.MapControllers();
@@ -125,12 +139,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<RateLimitMiddleware>();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.Run();
 

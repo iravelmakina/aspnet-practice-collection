@@ -13,10 +13,12 @@ namespace DNET.Backend.Api.Controllers;
 public class TableController : ControllerBase
 {
     private readonly ITableService _tableService;
+    private readonly ILogger<TableController> _logger;
 
-    public TableController(ITableService tableService)
+    public TableController(ITableService tableService, ILogger<TableController> logger)
     {
         _tableService = tableService;
+        _logger = logger;
     }
 
 
@@ -27,6 +29,8 @@ public class TableController : ControllerBase
     [ServiceFilter(typeof(ETagFilter))]
     public IActionResult GetTables(int page = 1, int size = 10)
     {
+        _logger.LogInformation("Fetching {PageSize} tables for page {Page}", size, page);
+        
         var tables = _tableService.GetAllPaginatedTables(page, size);
         if (tables == null)
             return NotFound(new ErrorResponse { Message = "Tables not found" });
@@ -39,6 +43,8 @@ public class TableController : ControllerBase
             size = tables.Size,
             totalPages = tables.TotalPages
         };
+        
+        _logger.LogInformation("Fetched {Count} tables for page {Page}", tables.TotalItems, page);
 
         return Ok(response);
     }
@@ -52,10 +58,14 @@ public class TableController : ControllerBase
     [ServiceFilter(typeof(ETagFilter))]
     public IActionResult GetTable(int id)
     {
+        _logger.LogInformation("Fetching table with ID={Id}", id);
+        
         var table = _tableService.GetTable(id);
         if (table == null)
             return NotFound(new ErrorResponse { Message = "Table not found" });
 
+        _logger.LogInformation("Fetched table with ID={Id}", id);
+        
         return Ok(table);
     }
 
@@ -68,9 +78,13 @@ public class TableController : ControllerBase
     [ServiceFilter(typeof(ETagFilter))] 
     public IActionResult GetTablesByCapacity(int capacity)
     {
+        _logger.LogInformation("Fetching tables with capacity={Capacity}", capacity);
+        
         var tables = _tableService.GetTablesByCapacity(capacity);
         if (tables == null)
             return NotFound(new ErrorResponse { Message = "Table not found" });
+        
+        _logger.LogInformation("Fetched {Count} tables with capacity={Capacity}", tables.Count, capacity);
 
         return Ok(tables);
     }
@@ -81,22 +95,15 @@ public class TableController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult CreateTable(Table table)
     {
-        try
-        {
-            var newTable = _tableService.CreateTable(table);
-            if (newTable == null)
-                return StatusCode(403, new { error = "Table creation is currently disabled." });
+        _logger.LogInformation("Creating table No{TableNumber}", table.Number);
+        
+        var newTable = _tableService.CreateTable(table);
+        if (newTable == null)
+            return StatusCode(403, new { error = "Table creation is currently disabled." });
 
-            return Created($"/tables/{newTable.Item1}", table);
-        }
-        catch (ServerException badRequestException)
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = badRequestException.WrongMessage,
-                Status = badRequestException.WrongCode
-            });
-        }
+        _logger.LogInformation("Created table No{TableNumber}", newTable.Item2.Number);
+        
+        return Created($"/tables/{newTable.Item1}", table);
     }
 
 
@@ -106,22 +113,15 @@ public class TableController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult UpdateTable(int id, Table table)
     {
-        try
-        {
-            var updatedTable = _tableService.UpdateTable(id, table);
-            if (updatedTable == null)
-                return NotFound(new ErrorResponse { Message = "Table not found" });
+        _logger.LogInformation("Updating table No{TableNumber} with ID={Id}", table.Number, id);
 
-            return Ok(updatedTable);
-        }
-        catch (ServerException badRequestException)
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = badRequestException.WrongMessage,
-                Status = badRequestException.WrongCode
-            });
-        }
+       var updatedTable = _tableService.UpdateTable(id, table);
+        if (updatedTable == null)
+            return NotFound(new ErrorResponse { Message = "Table not found" });
+
+        _logger.LogInformation("Updated table No{TableNumber} with ID={Id}", updatedTable.Number, id);
+        
+        return Ok(updatedTable);
     }
 
 
@@ -131,22 +131,15 @@ public class TableController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult PatchTable(int id, JsonElement patch)
     {
-        try
-        {
-            var updatedTable = _tableService.PatchTable(id, patch);
-            if (updatedTable == null)
-                return NotFound(new ErrorResponse { Message = "Table not found" });
-
-            return Ok(updatedTable);
-        }
-        catch (ServerException badRequestException)
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = badRequestException.WrongMessage,
-                Status = badRequestException.WrongCode
-            });
-        }
+        _logger.LogInformation("Patching table with ID={Id}", id);
+        
+        var updatedTable = _tableService.PatchTable(id, patch);
+        if (updatedTable == null)
+            return NotFound(new ErrorResponse { Message = "Table not found" });
+        
+        _logger.LogInformation("Patched table with ID={Id}", id);
+        
+        return Ok(updatedTable);
     }
 
 
@@ -156,9 +149,13 @@ public class TableController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult DeleteTable(int id)
     {
+        _logger.LogInformation("Deleting table with ID {Id}", id);
+        
         if (!_tableService.DeleteTable(id))
             return NotFound(new ErrorResponse { Message = "Table not found" });
 
+        _logger.LogInformation("Deleted table with ID {Id}", id);
+        
         return NoContent();
     }
 }
