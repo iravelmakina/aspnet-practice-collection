@@ -1,4 +1,5 @@
 using DNET.Backend.Api.Infrastructure;
+using DNET.Backend.Api.Models;
 using DNET.Backend.Api.Options;
 using DNET.Backend.Api.Services;
 using DNET.Backend.DataAccess;
@@ -10,6 +11,9 @@ using Microsoft.EntityFrameworkCore;
 using Polly;
 using Polly.Extensions.Http;
 using Polly.Timeout;
+using Serilog;
+using Serilog.Formatting.Compact;
+using Serilog.Formatting.Json;
 using StackExchange.Redis;
 using Policy = Polly.Policy;
 
@@ -93,7 +97,33 @@ builder.Services
         options.ClientSecret = clientSecret;
         options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     })
-    .AddJwtBearer(options => { options.TokenValidationParameters = JwtValidator.CreateTokenValidationParameters(); })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = JwtValidator.CreateTokenValidationParameters();
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                context.Response.StatusCode = 403;
+                
+                return context.Response.WriteAsJsonAsync(new ErrorResponse
+                {
+                    Status = 403,
+                    Message = "You do not have the required role to perform this action"
+                });
+            },
+            OnChallenge = context =>
+            {
+                context.Response.StatusCode = 401;
+                
+                return context.Response.WriteAsJsonAsync(new ErrorResponse
+                {
+                    Status = 401,
+                    Message = "Unauthorized. Invalid or expired token"
+                });
+            }
+        };
+    })
     .AddCookie();
 
 builder.Services.AddAuthorization();
@@ -115,6 +145,17 @@ builder.Services.AddSwaggerGen(option =>
     option.OperationFilter<SwaggerHeaderFilter>();
 });
 
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+    .WriteTo.Console(formatter: context.HostingEnvironment.IsDevelopment()
+        ? new JsonFormatter()
+        : new Serilog.Formatting.Display.MessageTemplateTextFormatter(
+            "[{Timestamp:HH:mm:ss} {Level}] {Message}{NewLine}{Exception}"
+        ));
+});
+
 var app = builder.Build();
 
 app.MapControllers();
@@ -125,12 +166,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<RateLimitMiddleware>();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.Run();
 

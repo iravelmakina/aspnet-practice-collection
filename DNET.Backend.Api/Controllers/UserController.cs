@@ -15,11 +15,13 @@ public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
     private readonly IRefreshTokenService _refreshTokenService;
+    private readonly ILogger<UserController> _logger;
 
-    public UserController(IUserService userService, IRefreshTokenService refreshTokenService)
+    public UserController(IUserService userService, IRefreshTokenService refreshTokenService, ILogger<UserController> logger)
     {
         _userService = userService;
         _refreshTokenService = refreshTokenService;
+        _logger = logger;
     }
 
     // POST /register
@@ -27,19 +29,13 @@ public class UserController : ControllerBase
     [Route("register")]
     public IActionResult RegisterUser(RegisterUserRequest request)
     {
-        try
-        {
-            var user = _userService.RegisterUser(request);
-            return Ok(new { Message = "User registered", UserId = user.Id });
-        }
-        catch (ServerException e)
-        {
-            return StatusCode(e.WrongCode, new ErrorResponse
-            {
-                Message = e.WrongMessage,
-                Status = e.WrongCode
-            });
-        }
+        _logger.LogInformation("Registering user with email={Email}", request.Email);
+        
+        var user = _userService.RegisterUser(request);
+        
+        _logger.LogInformation("Registered user with email={Email}, ID={Id}", request.Email, user.Id);
+        
+        return Ok(new { Message = "User registered", UserId = user.Id });
     }
 
 
@@ -49,6 +45,8 @@ public class UserController : ControllerBase
     [Route("/user")]
     public IActionResult GetUser()
     {
+        _logger.LogInformation("Fetching current user");
+        
         var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
         if (userIdClaim == null)
             return Unauthorized(new { Message = "User not found" });
@@ -57,6 +55,8 @@ public class UserController : ControllerBase
         var user = _userService.GetUser(userId);
         if (user == null)
             return Unauthorized(new ErrorResponse { Message = "User not found" });
+        
+        _logger.LogInformation("Fetched current user with ID={Id}", userId);
 
         return Ok(user);
     }
@@ -67,42 +67,35 @@ public class UserController : ControllerBase
     [Route("login")]
     public IActionResult LoginUser([FromBody] LoginUserRequest request)
     {
-        try
+        _logger.LogInformation("Logging in user with email={Email}", request.Email);
+            
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var userAgent = Request.Headers["User-Agent"].ToString();
+
+        var user = _userService.LoginUser(request);
+        if (user == null)
+            return Unauthorized(new ErrorResponse { Message = "Invalid email or password", Status = 401 });
+
+        var refreshToken = _refreshTokenService.GenerateAndStoreRefreshToken(user.Id, ip, userAgent);
+
+        var claims = new List<Claim>
         {
-            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            var userAgent = Request.Headers["User-Agent"].ToString();
+            new("id", user.Id.ToString()),
+            new(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
+            new(ClaimTypes.Role, user.Role)
+        };
+        var authResult = _userService.GetJWTvalidator().CreateJwtToken(claims);
+        
+        _logger.LogInformation("Logged in user with email={Email}, ID={Id}", request.Email, user.Id);
 
-            var user = _userService.LoginUser(request);
-            if (user == null)
-                return Unauthorized(new ErrorResponse { Message = "Invalid email or password", Status = 401 });
-
-            var refreshToken = _refreshTokenService.GenerateAndStoreRefreshToken(user.Id, ip, userAgent);
-
-            var claims = new List<Claim>
-            {
-                new("id", user.Id.ToString()),
-                new(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
-                new(ClaimTypes.Role, user.Role)
-            };
-            var authResult = _userService.GetJWTvalidator().CreateJwtToken(claims);
-
-            return Ok(new
-            {
-                Message = "Login successful",
-                UserId = user.Id,
-                AuthorizationToken = authResult.Token,
-                TokenExpiration = authResult.Expiration,
-                RefreshToken = refreshToken
-            });
-        }
-        catch (ServerException e)
+        return Ok(new
         {
-            return StatusCode(e.WrongCode, new ErrorResponse
-            {
-                Message = e.WrongMessage,
-                Status = e.WrongCode
-            });
-        }
+            Message = "Login successful",
+            UserId = user.Id,
+            AuthorizationToken = authResult.Token,
+            TokenExpiration = authResult.Expiration,
+            RefreshToken = refreshToken
+        });
     }
 
 
@@ -113,31 +106,25 @@ public class UserController : ControllerBase
     {
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var userAgent = Request.Headers["User-Agent"].ToString();
-        try
-        {
-            var user = _refreshTokenService.ValidateRefreshToken(token, ip, userAgent);
-            if (user == null)
-                return Unauthorized(new { Message = "User associated with this token was not found" });
+        
+        _logger.LogInformation("Refreshing token {Token} for {Ip}", token, ip);
+        
+        var user = _refreshTokenService.ValidateRefreshToken(token, ip, userAgent);
+        if (user == null)
+            return Unauthorized(new { Message = "User associated with this token was not found" });
 
-            var claims = new List<Claim>
-            {
-                new("id", user.Id.ToString()),
-                new(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
-                new(ClaimTypes.Role, user.Role)
-            };
-            var authResult = _userService.GetJWTvalidator().CreateJwtToken(claims);
-            var newRefreshToken = _refreshTokenService.GenerateAndStoreRefreshToken(user.Id, ip, userAgent);
-
-            return Ok(new { authResult.Token, authResult.Expiration, RefreshToken = newRefreshToken });
-        }
-        catch (ServerException e)
+        var claims = new List<Claim>
         {
-            return StatusCode(e.WrongCode, new ErrorResponse
-            {
-                Message = e.WrongMessage,
-                Status = e.WrongCode
-            });
-        }
+            new("id", user.Id.ToString()),
+            new(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
+            new(ClaimTypes.Role, user.Role)
+        };
+        var authResult = _userService.GetJWTvalidator().CreateJwtToken(claims);
+        var newRefreshToken = _refreshTokenService.GenerateAndStoreRefreshToken(user.Id, ip, userAgent);
+        
+        _logger.LogInformation("Refreshed token {Token} for {Ip} with ID={Id}", token, ip, user.Id);
+
+        return Ok(new { authResult.Token, authResult.Expiration, RefreshToken = newRefreshToken });
     }
 
 
@@ -146,7 +133,12 @@ public class UserController : ControllerBase
     [Route("logout")]
     public IActionResult LogoutUser([FromBody] string token)
     {
+        _logger.LogInformation("Logging out with token={Token}", token);
+        
         _refreshTokenService.RevokeRefreshToken(token);
+        
+        _logger.LogInformation("Logged out with token={Token}", token);
+        
         return Ok(new { Message = "Logout successful" });
     }
 
@@ -155,20 +147,13 @@ public class UserController : ControllerBase
     [Route("forget-password")]
     public async Task<IActionResult> ForgetPassword([FromQuery] string email)
     {
-        try
-        {
-            await _userService.SendResetCode(email);
-            
-            return Ok(new { Message = "Please check your email for a reset code" });
-        }
-        catch (ServerException e)
-        {
-            return StatusCode(e.WrongCode, new ErrorResponse
-            {
-                Message = e.WrongMessage,
-                Status = e.WrongCode
-            });
-        }
+        _logger.LogInformation("Sending reset code to {Email}", email);
+
+        await _userService.SendResetCode(email);
+        
+        _logger.LogInformation("Sent reset code to {Email}", email);
+        
+        return Ok(new { Message = "Please check your email for a reset code" });
     }
     
     
@@ -177,24 +162,17 @@ public class UserController : ControllerBase
     [Route("reset-password")]
     public IActionResult ResetPassword([FromBody] ResetPasswordRequest request)
     {
-        try
+        _logger.LogInformation("Resetting password for {Email}", request.Email);
+        
+        var user = _userService.ResetPassword(request.Email, request.ResetCode, request.NewPassword);
+        
+        _logger.LogInformation("Reset password for {Email} with ID{Id}", request.Email, user.Id);
+        
+        return Ok(new
         {
-            var user = _userService.ResetPassword(request.Email, request.ResetCode, request.NewPassword);
-            
-            return Ok(new
-            {
-                Message = "Password has been reset",  
-                UserId = user.Id
-            });
-        }
-        catch (ServerException e)
-        {
-            return StatusCode(e.WrongCode, new ErrorResponse
-            {
-                Message = e.WrongMessage,
-                Status = e.WrongCode
-            });
-        }
+            Message = "Password has been reset",  
+            UserId = user.Id
+        });
     }
 
 
@@ -205,13 +183,15 @@ public class UserController : ControllerBase
         {
             RedirectUri = Url.Action("GoogleLoginCallback", new { returnUrl }),
         };
-
+        
         return Challenge(properties, GoogleDefaults.AuthenticationScheme);
     }
 
     [HttpGet("google-login-callback")]
     public async Task<IActionResult> GoogleLoginCallback([FromQuery] string? returnUrl)
     {
+        _logger.LogInformation("Logging in with Google by returnUrl={ReturnUrl}", returnUrl);
+        
         var result = await HttpContext.AuthenticateAsync(GoogleDefaults.AuthenticationScheme);
         if (!result.Succeeded)
             return BadRequest(new ErrorResponse { Message = "Google login failed" });
@@ -220,25 +200,16 @@ public class UserController : ControllerBase
         if (claims == null)
             return BadRequest(new ErrorResponse { Message = "No claims found" });
         
-        try
-        {
-            var (user, authResult) = _userService.LoginWithGoogle(claims);
+        var (user, authResult) = _userService.LoginWithGoogle(claims);
 
-            return Ok(new
-            {
-                Message = "Login successful",
-                UserId = user.Id,
-                AuthorizationToken = authResult.Token,
-                TokenExpiration = authResult.Expiration
-            });
-        }
-        catch (ServerException e)
+        _logger.LogInformation("Logged in with Google user with ID={Id}", user.Id);
+        
+        return Ok(new
         {
-            return StatusCode(e.WrongCode, new ErrorResponse
-            {
-                Message = e.WrongMessage,
-                Status = e.WrongCode
-            });
-        }
+            Message = "Login successful",
+            UserId = user.Id,
+            AuthorizationToken = authResult.Token,
+            TokenExpiration = authResult.Expiration
+        });
     }
 }

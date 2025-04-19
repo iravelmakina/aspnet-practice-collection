@@ -1,4 +1,3 @@
-using DNET.Backend.Api.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using DNET.Backend.Api.Models;
 using DNET.Backend.Api.Requests;
@@ -12,10 +11,12 @@ namespace DNET.Backend.Api.Controllers;
 public class ReservationController : ControllerBase
 {
     private readonly IReservationService _reservationService;
+    private readonly ILogger<ReservationController> _logger;
 
-    public ReservationController(IReservationService reservationService)
+    public ReservationController(IReservationService reservationService, ILogger<ReservationController> logger)
     {
         _reservationService = reservationService;
+        _logger = logger;
     }
     
     // GET /reservations/1
@@ -24,10 +25,15 @@ public class ReservationController : ControllerBase
     [Authorize(Roles = "User, Admin")]
     public IActionResult GetReservation(int id)
     {
+        _logger.LogInformation("Fetching reservation with ID={Id}", id);
+        
         var reservation = _reservationService.GetReservation(id);
         if (reservation == null)
-            return NotFound(new ErrorResponse { Message = "Reservation not found" });
+            return NotFound(new ErrorResponse { Message = "Reservation not found", Status = 404});
     
+        _logger.LogInformation("Fetched reservation with ID {Id} for table No{TableNumber} {StartTime} – {EndTime}", 
+            id, reservation.TableNumber, reservation.StartTime, reservation.EndTime);
+        
         return Ok(reservation);
     }
     
@@ -36,20 +42,18 @@ public class ReservationController : ControllerBase
     [Authorize(Roles = "User, Admin")]
     public IActionResult GetReservations(int? clientId, int? tableNumber, DateTime? date, String? reservationType)
     {
-        // var validParameters = new HashSet<string> { "tableId", "date" };
-        // var queryParameters = context.Request.Query.Keys;
-        // foreach (var param in queryParameters)
-        // {
-        //     if (!validParameters.Contains(param))
-        //     {
-        //         return BadRequest(new ErrorResponse { Message = $"Invalid query parameter: {param}" });
-        //     }
-        // }
-
+        _logger.LogInformation(
+            "Fetching reservations for clientId={ClientId}, tableNumber={TableNumber}, date={Date}, reservationType={ReservationType}",
+            clientId, tableNumber, date?.ToString("yyyy-MM-dd"), reservationType);
+        
         var reservations = _reservationService.GetAllReservations(clientId, tableNumber, date, reservationType);
         if (!reservations.Any())
-            return NotFound(new ErrorResponse { Message = "Reservations not found" });
-
+            return NotFound(new ErrorResponse { Message = "Reservations not found", Status = 404});
+        
+        _logger.LogInformation(
+            "Fetched {Count} reservations for clientId={ClientId}, tableNumber={TableNumber}, date={Date}, reservationType={ReservationType}",
+            reservations.Count, clientId, tableNumber, date?.ToString("yyyy-MM-dd"), reservationType);
+        
         return Ok(reservations);
     }
     
@@ -58,21 +62,17 @@ public class ReservationController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult CreateReservation(CreateUpdateReservationRequest request)
     {
-        try
-        {
-            var result = _reservationService.AddReservation(request);
-            if (result == null)
-                return BadRequest(new ErrorResponse { Message = "Reservation limit exceeded" });
+        _logger.LogInformation("Creating reservation for table No{TableNumber} {StartTime} – {EndTime}", 
+            request.TableNumber, request.StartTime, request.EndTime);
+        
+        var result = _reservationService.AddReservation(request);
+        if (result == null)
+            return BadRequest(new ErrorResponse { Message = "Reservation limit exceeded", Status = 400});
+        
+        _logger.LogInformation("Created reservation for table No{TableNumber} {StartTime} – {EndTime} with ID={Id}", 
+            result.Item2.TableNumber, result.Item2.StartTime, result.Item2.EndTime, result.Item1);
 
-            return Created($"/reservations/{result.Item1}", result.Item2);
-        } catch (ServerException badRequestException)
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = badRequestException.WrongMessage,
-                Status = badRequestException.WrongCode
-            });
-        }
+        return Created($"/reservations/{result.Item1}", result.Item2);
     }
 
     // PUT /reservations/1
@@ -81,21 +81,18 @@ public class ReservationController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult UpdateReservation(int id, CreateUpdateReservationRequest request)
     {
-        try {
-            var updatedReservation = _reservationService.UpdateReservation(id, request);
-            if (updatedReservation == null)
-                return NotFound(new ErrorResponse { Message = "Reservation, table or client not found" });
+        _logger.LogInformation("Updating reservation for table No{TableNumber} {StartTime} – {EndTime} with ID={Id}", 
+            request.TableNumber, request.StartTime, request.EndTime, id);
+        
+        var updatedReservation = _reservationService.UpdateReservation(id, request);
+        if (updatedReservation == null)
+            return NotFound(new ErrorResponse { Message = "Reservation, table or client not found", Status = 404 });
 
-            return Ok(updatedReservation);
-        } catch (ServerException badRequestException)
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = badRequestException.WrongMessage,
-                Status = badRequestException.WrongCode
-            });
-        }
-    }
+        _logger.LogInformation("Updated reservation for table No{TableNumber} {StartTime} – {EndTime} with ID={Id}", 
+            updatedReservation.TableNumber, updatedReservation.StartTime, updatedReservation.EndTime, id);
+        
+        return Ok(updatedReservation);
+     }
 
     // DELETE /reservations/1
     [HttpDelete]
@@ -103,8 +100,12 @@ public class ReservationController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult DeleteReservation(int id)
     {
+        _logger.LogInformation("Deleting reservation with ID={Id}", id);
+
         if (!_reservationService.DeleteReservation(id))
-            return NotFound(new ErrorResponse { Message = "Reservation not found" });
+            return NotFound(new ErrorResponse { Message = "Reservation not found", Status = 404});
+        
+        _logger.LogInformation("Deleted reservation with ID={Id}", id);
         
         return NoContent();
     }
