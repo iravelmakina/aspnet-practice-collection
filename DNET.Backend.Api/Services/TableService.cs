@@ -72,6 +72,49 @@ public class TableService : ITableService
         
         return tables;
     }
+    
+    
+    public List<Table> GetNewRandomTables(int count = 10)
+    {
+        var random = new Random();
+        
+        var existingNumbers = _dbContext.Tables
+            .Select(t => t.Number)
+            .ToHashSet();
+
+        var usedNumbers = new HashSet<int>(existingNumbers);
+        var newTables = new List<TableEntity>();
+
+        while (newTables.Count < count)
+        {
+            var number = random.Next(50, 300);
+            if (usedNumbers.Contains(number))
+                continue;
+
+            usedNumbers.Add(number);
+
+            var table = new TableEntity
+            {
+                Number = number,
+                Capacity = random.Next(1, 10),
+                LocationId = random.Next(1, 8)
+            };
+
+            _dbContext.Tables.Add(table);
+            newTables.Add(table);
+        }
+
+        _dbContext.SaveChanges();
+        
+        var createdTableNumbers = newTables.Select(t => t.Number).ToList();
+
+        var savedTables = _dbContext.Tables
+            .Include(t => t.Location)
+            .Where(t => createdTableNumbers.Contains(t.Number))
+            .ToList();
+
+        return savedTables.Select(t => new Table(t)).ToList(); 
+    }
 
     
     public Tuple<int, Table>? CreateTable(Table table)

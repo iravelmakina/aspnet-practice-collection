@@ -88,6 +88,24 @@ public class TableController : ControllerBase
 
         return Ok(tables);
     }
+    
+    
+    // get /api/dev/generate-random
+    [HttpGet]
+    [Route("/api/dev/generate-random")]
+    [Authorize(Roles = "User, Admin")]
+    public IActionResult GetNewRandomTables(int count = 10)
+    {
+        _logger.LogInformation("Generating {Count} random tables", count);
+        
+        var tables = _tableService.GetNewRandomTables(count);
+        if (tables == null)
+            return NotFound(new ErrorResponse { Message = "Table not found" });
+
+        _logger.LogInformation("Generated {Count} random tables", count);
+        
+        return Ok(tables);
+    }
 
 
     // POST /tables

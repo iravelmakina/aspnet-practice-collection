@@ -84,7 +84,8 @@ public class TableServiceWithCache : ITableService
         
         return tables;
     }
-
+    
+    public List<Table> GetNewRandomTables(int count) => _tableService.GetNewRandomTables(count);
     public Tuple<int, Table>? CreateTable(Table table) => _tableService.CreateTable(table);
     public Table? UpdateTable(int id, Table table) => _tableService.UpdateTable(id, table);
     public Table? PatchTable(int id, JsonElement patch) => _tableService.PatchTable(id, patch);

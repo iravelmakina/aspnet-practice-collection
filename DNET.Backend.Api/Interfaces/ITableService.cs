@@ -11,6 +11,8 @@ public interface ITableService
     
     public List<Table>? GetTablesByCapacity(int capacity);
     
+    public List<Table> GetNewRandomTables(int count = 10);
+    
     /// <exception cref="ServerException"></exception>
     public Tuple<int, Table>? CreateTable(Table table);
     
