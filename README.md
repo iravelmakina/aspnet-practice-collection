@@ -126,7 +126,7 @@ https://github.com/yourusername/dotnet-course-cv-backend.git
 docker run --name aspnet_postgres -p 5432:5432 -e POSTGRES_PASSWORD=admin -d postgres
 
 # 3. Make sure your appsettings.json connection string uses:
-# Host=localhost;Port=5432;Database=TableReservationsDb;Username=postgres;Password=admin
+# Host=localhost;Port=5432;Database=table-reservations;Username=postgres;Password=admin
 
 # 4. Apply DB migrations (EF CLI required)
 dotnet tool install --global dotnet-ef --version 8.0.13
