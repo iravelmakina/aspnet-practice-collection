@@ -1,0 +1,46 @@
+# Normalize all text files to LF line endings
+* text=auto eol=lf
+
+# --- C# source files ---
+*.cs      text diff=csharp
+
+# --- Project and solution files ---
+*.csproj  text
+*.sln     text
+*.props   text
+*.targets text
+
+# --- JSON & config files ---
+*.json    text
+*.xml     text
+*.config  text
+*.yml     text
+*.yaml    text
+
+# --- HTML / CSS ---
+*.html    text
+*.css     text
+*.scss    text
+
+# --- Markdown / Documentation ---
+*.md      text
+*.txt     text
+
+# --- Static assets ---
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.woff    binary
+*.woff2   binary
+*.ttf     binary
+*.eot     binary
+*.svg     text
+
+# --- Output & IDE folders (already handled via .gitignore but safe to tag) ---
+*.exe     binary
+*.dll     binary
+*.pdb     binary
+*.obj     binary
+*.log     text
