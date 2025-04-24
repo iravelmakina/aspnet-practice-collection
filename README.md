@@ -150,4 +150,6 @@ cd ../DNET.Backend.Api.Tests
 ---
 
 ## License
-This project is open-source under the **MIT License**.
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+
